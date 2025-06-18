@@ -34,7 +34,7 @@ EduHope addresses the educational and emotional needs of children in conflict zo
 
 The user journey in EduHope is intuitive and engaging, designed to keep children motivated:
 
-```
+```plaintext
 Login → Assessment Games → Dashboard → Pet Companion → Collaborative Storytelling → Language Games → Logout
 ```
 
