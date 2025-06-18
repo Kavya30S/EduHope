@@ -1,4 +1,3 @@
-```markdown
 # EduHope (Flask Mobile App)
 
 EduHope is a zero-cost, open-source mobile application designed to provide personalized education, emotional support, and social connection for children in conflict zones. With a gamified, interactive interface, EduHope fosters learning and resilience in challenging environments using open-source technologies. This README guides you through the app’s functionality, structure, data sources, dependencies, and setup instructions.
