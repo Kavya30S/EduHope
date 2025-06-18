@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<h2>Welcome, {{ current_user.username }}!</h2>
+{% if not teacher_view %}
+    <a href="{{ url_for('education.generate_lesson') }}">Generate New Lesson</a>
+{% endif %}
+<h3>Your Lessons</h3>
+<ul>
+    {% for lesson in lessons %}
+        <li>{{ lesson.title }} - Difficulty: {{ lesson.difficulty }}</li>
+    {% endfor %}
+</ul>
+{% endblock %}

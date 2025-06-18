@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+
+{% block title %}Your Pet Companion{% endblock %}
+
+{% block content %}
+<h2>Meet {{ pet.name if pet else 'Your New Friend' }}!</h2>
+{% if pet %}
+    <p>Type: {{ pet.type }}</p>
+    <p>Name: {{ pet.name }}</p>
+    <p>Hunger: <span id="hunger">{{ pet.hunger }}</span>/100</p>
+    <p>Happiness: <span id="happiness">{{ pet.happiness }}</span>/100</p>
+    <p>Knowledge: <span id="knowledge">{{ pet.knowledge }}</span></p>
+    <p>Level: <span id="level">{{ pet.level }}</span></p>
+    <form method="POST" action="{{ url_for('pet_companion.feed_pet') }}">
+        <button type="submit">Feed {{ pet.name }}</button>
+    </form>
+    <form method="POST" action="{{ url_for('pet_companion.play_pet') }}">
+        <button type="submit">Play with {{ pet.name }}</button>
+    </form>
+{% else %}
+    <h3>Choose Your Pet!</h3>
+    <form method="POST">
+        <label for="pet_name">Name your pet:</label>
+        <input type="text" name="pet_name" id="pet_name" value="Buddy" required>
+        <label for="pet_type">Pick a type:</label>
+        <select name="pet_type" id="pet_type">
+            <option value="dragon">Dragon</option>
+            <option value="unicorn">Unicorn</option>
+            <option value="robot">Robot</option>
+        </select>
+        <button type="submit">Adopt Pet!</button>
+    </form>
+{% endif %}
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+<script>
+    const socket = io();
+    socket.on('pet_update', function(data) {
+        if (data.hunger) document.getElementById('hunger').textContent = data.hunger;
+        if (data.happiness) document.getElementById('happiness').textContent = data.happiness;
+        if (data.knowledge) document.getElementById('knowledge').textContent = data.knowledge;
+    });
+    socket.on('level_up', function(data) {
+        document.getElementById('level').textContent = data.level;
+        alert('Wow! {{ pet.name }} leveled up to ' + data.level + '!');
+    });
+</script>
+{% endblock %}

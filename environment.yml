@@ -1,0 +1,15 @@
+name: edu_hope
+channels:
+  - defaults
+dependencies:
+  - python=3.8
+  - flask
+  - flask-sqlalchemy
+  - flask-login
+  - flask-bcrypt
+  - transformers
+  - speechrecognition
+  - pyttsx3
+  - requests
+  - textblob
+  - better-profanity

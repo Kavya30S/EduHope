@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+
+{% block title %}Game{% endblock %}
+
+{% block content %}
+<h2>Math Maze Game</h2>
+<div id="game-container"></div>
+<script src="{{ url_for('static', filename='js/math_maze.js') }}"></script>
+{% endblock %}
