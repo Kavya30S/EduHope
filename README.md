@@ -52,66 +52,86 @@ The project is organized for modularity and clarity. Below is the folder structu
 ### Directory Details
 
 ```plaintext
+
 EduHope/
 ├── app/
-│   ├── main.py                  # Entry point to run the app
+│   ├── main.py                                    # Entry point to run the Flask application
+│   ├── __init__.py                               # Flask app initialization and configuration
+│   ├── config.py                                 # Configuration settings for different environments
 │   ├── models/
-│   │   ├── user.py              # User model for authentication and gamified data (points, emotional state)
-│   │   ├── lesson.py            # Lesson model for educational content
-│   │   ├── achievement.py       # Achievement model for gamification badges
-│   │   └── pet.py               # Pet model for Virtual Pet Companion attributes (hunger, happiness)
+│   │   ├── user.py                               # User model for authentication and gamified data (points, emotional state)
+│   │   ├── lesson.py                             # Lesson model for educational content
+│   │   ├── achievement.py                        # Achievement model for gamification badges
+│   │   ├── pet.py                                # Pet model for Virtual Pet Companion attributes (hunger, happiness)
+│   │   ├── emotion.py                            # Emotion model for tracking emotional states and responses
+│   │   ├── game_progress.py                      # Game progress tracking model for user advancement
+│   │   ├── pet_accessory.py                      # Pet accessories and customization model
+│   │   ├── chat.py                               # Chat model for social messaging functionality
+│   │   ├── social.py                             # Social interaction model for peer connections
+│   │   └── story.py                              # Story model for collaborative storytelling content
 │   ├── routes/
-│   │   ├── auth.py              # Handles login, registration, and logout with assessment redirects
-│   │   ├── education.py         # Manages lessons and quizzes
-│   │   ├── support.py           # Emotional support features (e.g., mood analysis)
-│   │   ├── social.py            # Social interactions (e.g., chat)
-│   │   ├── teacher.py           # Teacher tools for progress tracking
-│   │   ├── pet_companion.py     # Virtual Pet Companion interactions (feed, play)
-│   │   ├── storytelling.py      # Collaborative storytelling with real-time updates
-│   │   └── language_games.py    # Language learning games with speech recognition
-│   ├── templates/
-│   │   ├── base.html            # Base HTML template with navigation
-│   │   ├── login.html           # Login page
-│   │   ├── dashboard.html       # User dashboard for feature access
-│   │   ├── lesson.html          # Displays educational lessons
-│   │   ├── chat.html            # Social chat interface
-│   │   ├── game.html            # General game interface
-│   │   ├── pet.html             # Virtual Pet Companion interface
-│   │   ├── storytelling.html    # Collaborative storytelling interface
-│   │   └── language_game.html   # Language learning game interface
-│   ├── static/
-│   │   ├── css/
-│   │   │   └── style.css        # Styling for a playful, soothing UI
-│   │   ├── js/
-│   │   │   ├── main.js          # Service worker registration and general JS
-│   │   │   ├── math_maze.js     # Math-based game logic
-│   │   │   ├── pet.js           # Pet interaction scripts
-│   │   │   ├── storytelling.js  # Real-time storytelling scripts
-│   │   │   └── language_game.js # Language game logic
-│   │   └── images/
-│   │       └── logo.png         # App logo
+│   │   ├── auth.py                               # Handles login, registration, and logout with assessment redirects
+│   │   ├── education.py                          # Manages lessons and educational content delivery
+│   │   ├── support.py                            # Emotional support features (e.g., mood analysis, counseling tools)
+│   │   ├── social.py                             # Social interactions (e.g., chat, peer connections)
+│   │   ├── teacher.py                            # Teacher tools for progress tracking and classroom management
+│   │   ├── pet_companion.py                      # Virtual Pet Companion interactions (feed, play, customize)
+│   │   ├── storytelling.py                       # Collaborative storytelling with real-time updates
+│   │   └── language_games.py                     # Language learning games with speech recognition
 │   ├── services/
-│   │   ├── llm_service.py       # LLM (GPT-2) for lesson and story suggestions
-│   │   ├── voice_service.py     # Speech-to-text for language games
-│   │   ├── translation_service.py # Translation for multilingual support
-│   │   ├── sentiment_service.py  # Sentiment analysis for emotional support
-│   │   └── moderation_service.py # Content filtering for safety
-│   └── assessment_games/
-│       ├── knowledge_assessment.py # Game to assess knowledge level
-│       └── emotional_assessment.py # Game to assess emotional state
+│   │   ├── __init__.py                           # Services package initialization
+│   │   ├── adaptive_learning_services.py         # Adaptive learning algorithms and personalization
+│   │   ├── analytics_service.py                  # User analytics and progress tracking service
+│   │   ├── emotion_ai_services.py                # AI-powered emotion detection and response service
+│   │   ├── realtime_ai_services.py               # Real-time AI services for live interactions
+│   │   ├── llm_services.py                       # LLM (GPT-2) for lesson and story suggestions
+│   │   ├── voice_service.py                      # Speech-to-text and text-to-speech services
+│   │   ├── pet_ai_service.py                     # AI service for pet behavior and interactions
+│   │   ├── fantasy_pet_service.py                # Fantasy pet creation and management service
+│   │   ├── translation_service.py                # Translation service for multilingual support
+│   │   ├── sentiment_service.py                  # Sentiment analysis for emotional support
+│   │   └── moderation_service.py                 # Content filtering and safety moderation
+│   ├── assessment_games/
+│   │   ├── knowledge_assessment.py               # Game-based knowledge level assessment
+│   │   └── emotional_assessment.py               # Game-based emotional state assessment
+│   ├── templates/
+│   │   ├── base.html                             # Base HTML template with navigation and common elements
+│   │   ├── login.html                            # User authentication and login interface
+│   │   ├── dashboard.html                        # Main user dashboard for feature access and progress overview
+│   │   ├── lesson.html                           # Educational lesson display and interaction interface
+│   │   ├── chat.html                             # Social chat interface for peer communication
+│   │   ├── game.html                             # General game interface for various educational games
+│   │   ├── pet.html                              # Virtual Pet Companion interface and interaction page
+│   │   ├── storytelling.html                     # Collaborative storytelling interface with real-time updates
+│   │   └── language_game.html                    # Language learning game interface and challenges
+│   └── static/
+│       ├── css/
+│       │   └── style.css                         # Main styling for playful, child-friendly UI design
+│       ├── js/
+│       │   ├── main.js                           # Service worker registration and general JavaScript functionality
+│       │   ├── sw.js                             # Service worker for offline functionality and caching
+│       │   ├── pet.js                            # Pet interaction scripts and animation logic
+│       │   └── language_game.js                  # Language game client-side logic and interactivity
+│       └── images/
+│           └── logo.png                          # Application logo and branding assets
 ├── data/
 │   ├── datasets/
-│   │   ├── wikitext/            # WikiText dataset for general knowledge
-│   │   └── folktales/           # Folktales for storytelling
+│   │   ├── wikitext/                             # WikiText dataset for general knowledge content
+│   │   ├── folktales/                            # Folktales dataset for storytelling and cultural content
+│   │   ├── ck12/                                 # CK-12 educational content for structured learning
+│   │   ├── wikipedia/                            # Wikipedia dumps for comprehensive knowledge base
+│   │   ├── who/                                  # WHO mental health resources and guidelines
+│   │   └── tatoeba/                              # Tatoeba language learning sentence datasets
 │   └── models/
-│       └── gpt2_edu/            # Fine-tuned GPT-2 model for education
+│       └── gpt2_edu/                             # Fine-tuned GPT-2 model for educational content generation
 ├── docs/
-│   └── README.md                # Project documentation (this file)
+│   └── README.md                                 # Comprehensive project documentation and setup guide
 ├── tests/
-│   └── test_main.py             # Unit tests for core functionality
-├── requirements.txt             # Python dependencies
-├── environment.yml              # Conda environment configuration
-└── .gitignore                   # Files to ignore in Git
+│   └── test_main.py                              # Unit tests for core application functionality
+├── requirements.txt                              # Python package dependencies for pip installation
+├── environment.yml                               # Conda environment configuration with all dependencies
+└── .gitignore                                    # Git ignore rules for temporary and sensitive files
+
 ```
 
 ## Dataset Acquisition
