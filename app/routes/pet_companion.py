@@ -1,484 +1,464 @@
-from flask import Blueprint, render_template, request, jsonify, flash, redirect, url_for
+from flask import Blueprint, render_template, request, jsonify, session, redirect, url_for
 from flask_login import login_required, current_user
 from app.models.pet import Pet
 from app.models.user import User
-from app.models.achievement import Achievement
-from app.models.user_achievement import UserAchievement
-from app.models.pet_item import PetItem
-from app.models.user_pet_item import UserPetItem
 from app import db
+import json
 from datetime import datetime, timedelta
 import random
 
-pet = Blueprint('pet', __name__)
+pet_bp = Blueprint('pet', __name__)
 
-@pet.route('/')
+@pet_bp.route('/pet')
 @login_required
-def index():
-    """Main pet interface"""
+def pet_dashboard():
+    """Main pet dashboard"""
     user_pet = Pet.query.filter_by(user_id=current_user.id).first()
     
     if not user_pet:
-        # Create a default pet if none exists
-        user_pet = Pet(
-            user_id=current_user.id,
-            name=f"{current_user.username}'s Dragon",
-            pet_type='dragon',
-            level=1,
-            experience=0,
-            happiness=80,
-            hunger=70,
-            health=100,
-            energy=90
-        )
-        db.session.add(user_pet)
+        # Redirect to pet selection if no pet exists
+        return redirect(url_for('pet.select_pet'))
+    
+    # Check if pet needs automatic stat updates (time-based decay)
+    update_pet_time_based_stats(user_pet)
+    
+    available_pets = Pet.get_available_pets()
+    unlocked_pets = [pet for pet in available_pets if pet['unlock_requirement'] <= current_user.total_score]
+    
+    return render_template('pet.html', 
+                         pet=user_pet, 
+                         pet_status=user_pet.get_status(),
+                         unlocked_pets=unlocked_pets,
+                         available_accessories=get_available_accessories(user_pet.level),
+                         available_toys=get_available_toys(user_pet.level))
+
+@pet_bp.route('/select-pet')
+@login_required
+def select_pet():
+    """Pet selection page for new users"""
+    existing_pet = Pet.query.filter_by(user_id=current_user.id).first()
+    if existing_pet:
+        return redirect(url_for('pet.pet_dashboard'))
+    
+    available_pets = Pet.get_available_pets()
+    unlocked_pets = [pet for pet in available_pets if pet['unlock_requirement'] <= current_user.total_score]
+    
+    return render_template('pet_selection.html', pets=unlocked_pets)
+
+@pet_bp.route('/create-pet', methods=['POST'])
+@login_required
+def create_pet():
+    """Create a new pet for the user"""
+    data = request.get_json()
+    
+    # Check if user already has a pet
+    existing_pet = Pet.query.filter_by(user_id=current_user.id).first()
+    if existing_pet:
+        return jsonify({'error': 'You already have a pet!'}), 400
+    
+    pet_type = data.get('pet_type')
+    pet_name = data.get('pet_name', '').strip()
+    
+    if not pet_name:
+        return jsonify({'error': 'Pet name is required!'}), 400
+    
+    if len(pet_name) > 20:
+        return jsonify({'error': 'Pet name must be 20 characters or less!'}), 400
+    
+    # Validate pet type
+    available_pets = Pet.get_available_pets()
+    valid_pet = next((pet for pet in available_pets if pet['type'] == pet_type), None)
+    
+    if not valid_pet:
+        return jsonify({'error': 'Invalid pet type!'}), 400
+    
+    # Check if pet is unlocked
+    if valid_pet['unlock_requirement'] > current_user.total_score:
+        return jsonify({'error': 'Pet not yet unlocked!'}), 400
+    
+    # Create new pet
+    new_pet = Pet(
+        user_id=current_user.id,
+        name=pet_name,
+        pet_type=pet_type,
+        personality_traits=json.dumps(valid_pet['personality'])
+    )
+    
+    db.session.add(new_pet)
+    db.session.commit()
+    
+    # Add initial accessories for starter pets
+    if valid_pet['unlock_requirement'] == 0:
+        new_pet.add_accessory('Basic Collar')
+        new_pet.add_toy('Starter Ball')
         db.session.commit()
     
-    # Get available items for purchase
-    available_items = PetItem.query.filter_by(available=True).all()
-    
-    # Get user's items
-    user_items = db.session.query(PetItem, UserPetItem).join(
-        UserPetItem, PetItem.id == UserPetItem.item_id
-    ).filter(UserPetItem.user_id == current_user.id).all()
-    
-    # Check if pet needs attention
-    needs_attention = user_pet.hunger < 30 or user_pet.happiness < 40 or user_pet.energy < 20
-    
-    return render_template('pet/index.html', 
-                         pet=user_pet, 
-                         available_items=available_items,
-                         user_items=user_items,
-                         needs_attention=needs_attention)
+    return jsonify({
+        'success': True,
+        'message': f'Welcome {pet_name}! Your new companion is ready!',
+        'pet': new_pet.to_dict()
+    })
 
-@pet.route('/feed', methods=['POST'])
+@pet_bp.route('/feed', methods=['POST'])
 @login_required
-def feed():
+def feed_pet():
     """Feed the pet"""
     user_pet = Pet.query.filter_by(user_id=current_user.id).first()
     if not user_pet:
-        return jsonify({'success': False, 'message': 'Pet not found'})
+        return jsonify({'error': 'No pet found!'}), 404
     
-    food_type = request.json.get('food_type', 'basic')
-    food_costs = {'basic': 5, 'premium': 15, 'deluxe': 25}
-    food_effects = {'basic': 20, 'premium': 40, 'deluxe': 60}
+    data = request.get_json()
+    food_type = data.get('food_type', 'regular')
     
-    cost = food_costs.get(food_type, 5)
-    effect = food_effects.get(food_type, 20)
+    # Check if user has enough points for premium food
+    food_costs = {
+        'regular': 0,
+        'premium': 10,
+        'magical': 25
+    }
     
-    if current_user.total_points < cost:
-        return jsonify({'success': False, 'message': 'Not enough points!'})
+    cost = food_costs.get(food_type, 0)
+    if cost > current_user.points:
+        return jsonify({'error': 'Not enough points for this food!'}), 400
+    
+    # Check feeding cooldown (can't feed too frequently)
+    if user_pet.last_fed:
+        time_since_feed = datetime.utcnow() - user_pet.last_fed
+        if time_since_feed < timedelta(minutes=30):
+            remaining_time = 30 - int(time_since_feed.total_seconds() / 60)
+            return jsonify({'error': f'Pet is not hungry yet! Wait {remaining_time} more minutes.'}), 400
     
     # Deduct points and feed pet
-    current_user.total_points -= cost
-    user_pet.hunger = min(100, user_pet.hunger + effect)
-    user_pet.happiness = min(100, user_pet.happiness + 5)
-    user_pet.last_fed = datetime.utcnow()
-    user_pet.times_fed = (user_pet.times_fed or 0) + 1
-    
-    # Add experience
-    exp_gain = effect // 4
-    user_pet.experience += exp_gain
-    
-    # Check for level up
-    level_up = False
-    while user_pet.experience >= user_pet.level * 100:
-        user_pet.experience -= user_pet.level * 100
-        user_pet.level += 1
-        level_up = True
-        user_pet.max_happiness = min(100, user_pet.max_happiness + 5)
-        user_pet.max_health = min(100, user_pet.max_health + 5)
+    current_user.points -= cost
+    user_pet.feed(food_type)
     
     db.session.commit()
     
-    # Check for feeding achievements
-    check_feeding_achievements(user_pet.times_fed)
-    
-    response = {
-        'success': True,
-        'message': f'Fed {user_pet.name} with {food_type} food!',
-        'pet': {
-            'hunger': user_pet.hunger,
-            'happiness': user_pet.happiness,
-            'level': user_pet.level,
-            'experience': user_pet.experience
-        },
-        'user_points': current_user.total_points,
-        'level_up': level_up
+    # Generate feeding message
+    feeding_messages = {
+        'regular': [
+            f"{user_pet.name} happily munches on the food!",
+            f"{user_pet.name} enjoys the tasty meal!",
+            f"{user_pet.name} gobbles up the food with joy!"
+        ],
+        'premium': [
+            f"{user_pet.name} is delighted with the premium feast!",
+            f"{user_pet.name} savors every bite of the delicious meal!",
+            f"{user_pet.name} feels very special with this premium food!"
+        ],
+        'magical': [
+            f"{user_pet.name} glows with magical energy after eating!",
+            f"{user_pet.name} feels the magic coursing through their body!",
+            f"{user_pet.name} sparkles with newfound magical power!"
+        ]
     }
     
-    if level_up:
-        response['level_up_message'] = f'{user_pet.name} leveled up to level {user_pet.level}!'
+    message = random.choice(feeding_messages[food_type])
     
-    return jsonify(response)
+    return jsonify({
+        'success': True,
+        'message': message,
+        'pet_status': user_pet.get_status(),
+        'user_points': current_user.points
+    })
 
-@pet.route('/play', methods=['POST'])
+@pet_bp.route('/play', methods=['POST'])
 @login_required
-def play():
+def play_with_pet():
     """Play with the pet"""
     user_pet = Pet.query.filter_by(user_id=current_user.id).first()
     if not user_pet:
-        return jsonify({'success': False, 'message': 'Pet not found'})
+        return jsonify({'error': 'No pet found!'}), 404
     
-    activity = request.json.get('activity', 'fetch')
+    data = request.get_json()
+    activity = data.get('activity', 'basic')
     
-    if user_pet.energy < 20:
-        return jsonify({'success': False, 'message': f'{user_pet.name} is too tired to play!'})
+    # Check if pet has enough energy
+    if user_pet.energy < 10:
+        return jsonify({'error': f'{user_pet.name} is too tired to play! Let them rest or feed them some magical food.'}), 400
     
-    # Different activities have different effects
-    activities = {
-        'fetch': {'happiness': 25, 'energy': -15, 'experience': 10},
-        'tricks': {'happiness': 30, 'energy': -20, 'experience': 15},
-        'cuddle': {'happiness': 20, 'energy': -5, 'experience': 5},
-        'training': {'happiness': 15, 'energy': -25, 'experience': 25}
+    # Check play cooldown
+    if user_pet.last_played:
+        time_since_play = datetime.utcnow() - user_pet.last_played
+        if time_since_play < timedelta(minutes=15):
+            remaining_time = 15 - int(time_since_play.total_seconds() / 60)
+            return jsonify({'error': f'{user_pet.name} needs to rest! Wait {remaining_time} more minutes.'}), 400
+    
+    # Play with pet
+    success = user_pet.play(activity)
+    
+    if not success:
+        return jsonify({'error': f'{user_pet.name} is too tired for this activity!'}), 400
+    
+    db.session.commit()
+    
+    # Generate play messages
+    play_messages = {
+        'basic': [
+            f"{user_pet.name} has a wonderful time playing!",
+            f"{user_pet.name} jumps around with excitement!",
+            f"{user_pet.name} loves spending time with you!"
+        ],
+        'training': [
+            f"{user_pet.name} learns new tricks during training!",
+            f"{user_pet.name} becomes stronger and smarter!",
+            f"{user_pet.name} enjoys the challenging training session!"
+        ],
+        'adventure': [
+            f"{user_pet.name} discovers amazing things on the adventure!",
+            f"{user_pet.name} feels brave and adventurous!",
+            f"{user_pet.name} returns from adventure with glowing eyes!"
+        ]
     }
     
-    effects = activities.get(activity, activities['fetch'])
-    
-    # Apply effects
-    user_pet.happiness = min(user_pet.max_happiness, user_pet.happiness + effects['happiness'])
-    user_pet.energy = max(0, user_pet.energy + effects['energy'])
-    user_pet.experience += effects['experience']
-    user_pet.last_played = datetime.utcnow()
-    user_pet.times_played = (user_pet.times_played or 0) + 1
+    message = random.choice(play_messages[activity])
     
     # Check for level up
-    level_up = False
-    while user_pet.experience >= user_pet.level * 100:
-        user_pet.experience -= user_pet.level * 100
-        user_pet.level += 1
-        level_up = True
-    
-    db.session.commit()
-    
-    # Generate random positive message
-    messages = [
-        f'{user_pet.name} loved playing {activity}!',
-        f'{user_pet.name} is so happy after {activity}!',
-        f'Great {activity} session with {user_pet.name}!',
-        f'{user_pet.name} wants to play {activity} again!'
-    ]
+    level_up_message = ""
+    if user_pet.experience >= user_pet.level * 100:
+        level_up_message = f" 🎉 {user_pet.name} leveled up to Level {user_pet.level}! New rewards unlocked!"
     
     return jsonify({
         'success': True,
-        'message': random.choice(messages),
-        'pet': {
-            'happiness': user_pet.happiness,
-            'energy': user_pet.energy,
-            'level': user_pet.level,
-            'experience': user_pet.experience
+        'message': message + level_up_message,
+        'pet_status': user_pet.get_status(),
+        'level_up': level_up_message != ""
+    })
+
+@pet_bp.route('/care', methods=['POST'])
+@login_required
+def care_for_pet():
+    """General care activities (grooming, healing, etc.)"""
+    user_pet = Pet.query.filter_by(user_id=current_user.id).first()
+    if not user_pet:
+        return jsonify({'error': 'No pet found!'}), 404
+    
+    data = request.get_json()
+    care_type = data.get('care_type', 'groom')
+    
+    care_effects = {
+        'groom': {
+            'happiness': 15,
+            'health': 10,
+            'cost': 5,
+            'messages': [
+                f"{user_pet.name} looks beautiful after grooming!",
+                f"{user_pet.name} sparkles with cleanliness!",
+                f"{user_pet.name} feels fresh and happy!"
+            ]
         },
-        'level_up': level_up
-    })
-
-@pet.route('/heal', methods=['POST'])
-@login_required
-def heal():
-    """Heal the pet"""
-    user_pet = Pet.query.filter_by(user_id=current_user.id).first()
-    if not user_pet:
-        return jsonify({'success': False, 'message': 'Pet not found'})
-    
-    heal_cost = 10
-    if current_user.total_points < heal_cost:
-        return jsonify({'success': False, 'message': 'Not enough points!'})
-    
-    if user_pet.health >= user_pet.max_health:
-        return jsonify({'success': False, 'message': f'{user_pet.name} is already healthy!'})
-    
-    current_user.total_points -= heal_cost
-    user_pet.health = user_pet.max_health
-    user_pet.happiness = min(user_pet.max_happiness, user_pet.happiness + 10)
-    
-    db.session.commit()
-    
-    return jsonify({
-        'success': True,
-        'message': f'{user_pet.name} is now fully healed!',
-        'pet': {
-            'health': user_pet.health,
-            'happiness': user_pet.happiness
+        'heal': {
+            'health': 30,
+            'happiness': 5,
+            'cost': 15,
+            'messages': [
+                f"{user_pet.name} feels much better now!",
+                f"{user_pet.name} is fully healed and healthy!",
+                f"{user_pet.name} bounces back with renewed vigor!"
+            ]
         },
-        'user_points': current_user.total_points
-    })
-
-@pet.route('/rest', methods=['POST'])
-@login_required
-def rest():
-    """Let the pet rest to restore energy"""
-    user_pet = Pet.query.filter_by(user_id=current_user.id).first()
-    if not user_pet:
-        return jsonify({'success': False, 'message': 'Pet not found'})
-    
-    if user_pet.energy >= 100:
-        return jsonify({'success': False, 'message': f'{user_pet.name} is already full of energy!'})
-    
-    # Check if enough time has passed since last rest
-    if user_pet.last_rested and (datetime.utcnow() - user_pet.last_rested).seconds < 300:  # 5 minutes
-        return jsonify({'success': False, 'message': f'{user_pet.name} needs more time to rest!'})
-    
-    user_pet.energy = min(100, user_pet.energy + 30)
-    user_pet.last_rested = datetime.utcnow()
-    
-    db.session.commit()
-    
-    return jsonify({
-        'success': True,
-        'message': f'{user_pet.name} feels refreshed after resting!',
-        'pet': {
-            'energy': user_pet.energy
+        'massage': {
+            'happiness': 20,
+            'energy': 15,
+            'cost': 10,
+            'messages': [
+                f"{user_pet.name} purrs with contentment during the massage!",
+                f"{user_pet.name} feels so relaxed and happy!",
+                f"{user_pet.name} enjoys the soothing massage!"
+            ]
         }
-    })
-
-@pet.route('/rename', methods=['POST'])
-@login_required
-def rename():
-    """Rename the pet"""
-    user_pet = Pet.query.filter_by(user_id=current_user.id).first()
-    if not user_pet:
-        return jsonify({'success': False, 'message': 'Pet not found'})
-    
-    new_name = request.json.get('name', '').strip()
-    
-    if not new_name or len(new_name) < 2:
-        return jsonify({'success': False, 'message': 'Name must be at least 2 characters long'})
-    
-    if len(new_name) > 20:
-        return jsonify({'success': False, 'message': 'Name must be less than 20 characters'})
-    
-    old_name = user_pet.name
-    user_pet.name = new_name
-    db.session.commit()
-    
-    return jsonify({
-        'success': True,
-        'message': f'Pet renamed from {old_name} to {new_name}!',
-        'pet': {
-            'name': user_pet.name
-        }
-    })
-
-@pet.route('/shop')
-@login_required
-def shop():
-    """Pet shop for buying items"""
-    available_items = PetItem.query.filter_by(available=True).all()
-    user_items = db.session.query(PetItem, UserPetItem).join(
-        UserPetItem, PetItem.id == UserPetItem.item_id
-    ).filter(UserPetItem.user_id == current_user.id).all()
-    
-    user_item_ids = {item[1].item_id for item in user_items}
-    
-    return render_template('pet/shop.html', 
-                         available_items=available_items,
-                         user_item_ids=user_item_ids,
-                         user_points=current_user.total_points)
-
-@pet.route('/buy_item', methods=['POST'])
-@login_required
-def buy_item():
-    """Buy an item for the pet"""
-    item_id = request.json.get('item_id')
-    item = PetItem.query.get(item_id)
-    
-    if not item or not item.available:
-        return jsonify({'success': False, 'message': 'Item not found'})
-    
-    # Check if user already owns this item
-    existing = UserPetItem.query.filter_by(user_id=current_user.id, item_id=item_id).first()
-    if existing:
-        return jsonify({'success': False, 'message': 'You already own this item'})
-    
-    if current_user.total_points < item.cost:
-        return jsonify({'success': False, 'message': 'Not enough points!'})
-    
-    # Purchase item
-    current_user.total_points -= item.cost
-    user_item = UserPetItem(user_id=current_user.id, item_id=item_id)
-    db.session.add(user_item)
-    db.session.commit()
-    
-    return jsonify({
-        'success': True,
-        'message': f'Successfully bought {item.name}!',
-        'user_points': current_user.total_points
-    })
-
-@pet.route('/use_item', methods=['POST'])
-@login_required
-def use_item():
-    """Use an item on the pet"""
-    item_id = request.json.get('item_id')
-    user_pet = Pet.query.filter_by(user_id=current_user.id).first()
-    
-    if not user_pet:
-        return jsonify({'success': False, 'message': 'Pet not found'})
-    
-    # Check if user owns the item
-    user_item = UserPetItem.query.filter_by(user_id=current_user.id, item_id=item_id).first()
-    if not user_item:
-        return jsonify({'success': False, 'message': 'You do not own this item'})
-    
-    item = PetItem.query.get(item_id)
-    if not item:
-        return jsonify({'success': False, 'message': 'Item not found'})
-    
-    # Apply item effects
-    effects_applied = []
-    
-    if item.happiness_effect:
-        user_pet.happiness = min(user_pet.max_happiness, user_pet.happiness + item.happiness_effect)
-        effects_applied.append(f'Happiness +{item.happiness_effect}')
-    
-    if item.health_effect:
-        user_pet.health = min(user_pet.max_health, user_pet.health + item.health_effect)
-        effects_applied.append(f'Health +{item.health_effect}')
-    
-    if item.energy_effect:
-        user_pet.energy = min(100, user_pet.energy + item.energy_effect)
-        effects_applied.append(f'Energy +{item.energy_effect}')
-    
-    if item.hunger_effect:
-        user_pet.hunger = min(100, user_pet.hunger + item.hunger_effect)
-        effects_applied.append(f'Hunger +{item.hunger_effect}')
-    
-    # Use up the item if it's consumable
-    if item.consumable:
-        db.session.delete(user_item)
-    
-    db.session.commit()
-    
-    return jsonify({
-        'success': True,
-        'message': f'Used {item.name} on {user_pet.name}! ' + ', '.join(effects_applied),
-        'pet': {
-            'happiness': user_pet.happiness,
-            'health': user_pet.health,
-            'energy': user_pet.energy,
-            'hunger': user_pet.hunger
-        }
-    })
-
-@pet.route('/playground')
-@login_required
-def playground():
-    """Virtual playground where pets can interact"""
-    # Get all pets that are currently "online" (active in last hour)
-    online_pets = db.session.query(Pet, User).join(User, Pet.user_id == User.id).filter(
-        User.last_seen >= datetime.utcnow() - timedelta(hours=1)
-    ).limit(20).all()
-    
-    user_pet = Pet.query.filter_by(user_id=current_user.id).first()
-    
-    return render_template('pet/playground.html', 
-                         online_pets=online_pets,
-                         user_pet=user_pet)
-
-@pet.route('/stats')
-@login_required
-def stats():
-    """Detailed pet statistics"""
-    user_pet = Pet.query.filter_by(user_id=current_user.id).first()
-    if not user_pet:
-        return redirect(url_for('pet.index'))
-    
-    # Calculate various stats
-    stats = {
-        'age_days': (datetime.utcnow() - user_pet.created_at).days,
-        'times_fed': user_pet.times_fed or 0,
-        'times_played': user_pet.times_played or 0,
-        'level_progress': (user_pet.experience / (user_pet.level * 100)) * 100,
-        'happiness_level': get_happiness_level(user_pet.happiness),
-        'health_status': get_health_status(user_pet.health),
-        'energy_level': get_energy_level(user_pet.energy)
     }
     
-    return render_template('pet/stats.html', pet=user_pet, stats=stats)
-
-def check_feeding_achievements(times_fed):
-    """Check and award feeding-related achievements"""
-    if times_fed == 10:
-        award_achievement(current_user.id, 'Pet Caretaker')
-
-def award_achievement(user_id, achievement_name):
-    """Award an achievement to a user"""
-    achievement = Achievement.query.filter_by(name=achievement_name).first()
-    if not achievement:
-        return
+    if care_type not in care_effects:
+        return jsonify({'error': 'Invalid care type!'}), 400
     
-    # Check if user already has this achievement
-    existing = UserAchievement.query.filter_by(
-        user_id=user_id, 
-        achievement_id=achievement.id
-    ).first()
+    care = care_effects[care_type]
     
-    if not existing:
-        user_achievement = UserAchievement(
-            user_id=user_id,
-            achievement_id=achievement.id
-        )
-        db.session.add(user_achievement)
-        
-        # Add points to user
-        user = User.query.get(user_id)
-        user.total_points += achievement.points
-        db.session.commit()
-
-def get_happiness_level(happiness):
-    """Convert happiness number to descriptive level"""
-    if happiness >= 80:
-        return "Ecstatic"
-    elif happiness >= 60:
-        return "Happy"
-    elif happiness >= 40:
-        return "Content"
-    elif happiness >= 20:
-        return "Sad"
-    else:
-        return "Depressed"
-
-def get_health_status(health):
-    """Convert health number to descriptive status"""
-    if health >= 80:
-        return "Excellent"
-    elif health >= 60:
-        return "Good"
-    elif health >= 40:
-        return "Fair"
-    elif health >= 20:
-        return "Poor"
-    else:
-        return "Critical"
-
-def get_energy_level(energy):
-    """Convert energy number to descriptive level"""
-    if energy >= 80:
-        return "Energetic"
-    elif energy >= 60:
-        return "Active"
-    elif energy >= 40:
-        return "Moderate"
-    elif energy >= 20:
-        return "Tired"
-    else:
-        return "Exhausted"
-
-@pet.route('/api/status')
-@login_required
-def api_status():
-    """API endpoint for getting pet status"""
-    user_pet = Pet.query.filter_by(user_id=current_user.id).first()
-    if not user_pet:
-        return jsonify({'error': 'Pet not found'}), 404
+    # Check if user has enough points
+    if care['cost'] > current_user.points:
+        return jsonify({'error': 'Not enough points for this care activity!'}), 400
+    
+    # Apply care effects
+    current_user.points -= care['cost']
+    
+    if 'happiness' in care:
+        user_pet.happiness = min(100, user_pet.happiness + care['happiness'])
+    if 'health' in care:
+        user_pet.health = min(100, user_pet.health + care['health'])
+    if 'energy' in care:
+        user_pet.energy = min(100, user_pet.energy + care['energy'])
+    
+    user_pet.experience += 5  # Small experience gain for caring
+    
+    db.session.commit()
+    
+    message = random.choice(care['messages'])
     
     return jsonify({
-        'name': user_pet.name,
-        'type': user_pet.pet_type,
-        'level': user_pet.level,
-        'experience': user_pet.experience,
-        'happiness': user_pet.happiness,
-        'hunger': user_pet.hunger,
-        'health': user_pet.health,
-        'energy': user_pet.energy,
-        'needs_attention': user_pet.hunger < 30 or user_pet.happiness < 40 or user_pet.energy < 20
+        'success': True,
+        'message': message,
+        'pet_status': user_pet.get_status(),
+        'user_points': current_user.points
     })
+
+@pet_bp.route('/status')
+@login_required
+def get_pet_status():
+    """Get current pet status"""
+    user_pet = Pet.query.filter_by(user_id=current_user.id).first()
+    if not user_pet:
+        return jsonify({'error': 'No pet found!'}), 404
+    
+    update_pet_time_based_stats(user_pet)
+    
+    return jsonify({
+        'pet_status': user_pet.get_status(),
+        'time_until_next_feed': get_time_until_next_feed(user_pet),
+        'time_until_next_play': get_time_until_next_play(user_pet)
+    })
+
+@pet_bp.route('/pet-shop')
+@login_required
+def pet_shop():
+    """Pet shop for accessories and toys"""
+    user_pet = Pet.query.filter_by(user_id=current_user.id).first()
+    if not user_pet:
+        return jsonify({'error': 'No pet found!'}), 404
+    
+    available_accessories = get_available_accessories(user_pet.level)
+    available_toys = get_available_toys(user_pet.level)
+    
+    return jsonify({
+        'accessories': available_accessories,
+        'toys': available_toys,
+        'user_points': current_user.points,
+        'pet_level': user_pet.level
+    })
+
+@pet_bp.route('/buy-item', methods=['POST'])
+@login_required
+def buy_item():
+    """Buy accessory or toy for pet"""
+    user_pet = Pet.query.filter_by(user_id=current_user.id).first()
+    if not user_pet:
+        return jsonify({'error': 'No pet found!'}), 404
+    
+    data = request.get_json()
+    item_type = data.get('item_type')  # 'accessory' or 'toy'
+    item_name = data.get('item_name')
+    
+    # Get item details
+    if item_type == 'accessory':
+        available_items = get_available_accessories(user_pet.level)
+    elif item_type == 'toy':
+        available_items = get_available_toys(user_pet.level)
+    else:
+        return jsonify({'error': 'Invalid item type!'}), 400
+    
+    item = next((item for item in available_items if item['name'] == item_name), None)
+    if not item:
+        return jsonify({'error': 'Item not found!'}), 404
+    
+    # Check if already owned
+    if item_type == 'accessory' and item_name in user_pet.get_unlocked_accessories():
+        return jsonify({'error': 'You already own this accessory!'}), 400
+    if item_type == 'toy' and item_name in user_pet.get_unlocked_toys():
+        return jsonify({'error': 'You already own this toy!'}), 400
+    
+    # Check if user has enough points
+    if item['cost'] > current_user.points:
+        return jsonify({'error': 'Not enough points!'}), 400
+    
+    # Purchase item
+    current_user.points -= item['cost']
+    
+    if item_type == 'accessory':
+        user_pet.add_accessory(item_name)
+    else:
+        user_pet.add_toy(item_name)
+    
+    # Add experience for purchasing
+    user_pet.experience += 10
+    user_pet.happiness = min(100, user_pet.happiness + 15)
+    
+    db.session.commit()
+    
+    return jsonify({
+        'success': True,
+        'message': f'{user_pet.name} loves their new {item_name}!',
+        'pet_status': user_pet.get_status(),
+        'user_points': current_user.points
+    })
+
+def update_pet_time_based_stats(pet):
+    """Update pet stats based on time passed"""
+    now = datetime.utcnow()
+    
+    # Hunger increases over time
+    if pet.last_fed:
+        hours_since_feed = (now - pet.last_fed).total_seconds() / 3600
+        hunger_increase = int(hours_since_feed * 5)  # 5 hunger per hour
+        pet.hunger = min(100, pet.hunger + hunger_increase)
+    
+    # Energy regenerates over time if well-fed
+    if pet.hunger < 70:
+        hours_since_last_update = (now - pet.created_at).total_seconds() / 3600
+        energy_regen = int(hours_since_last_update * 2)  # 2 energy per hour
+        pet.energy = min(100, pet.energy + energy_regen)
+    
+    # Happiness decreases if neglected
+    if pet.last_played:
+        hours_since_play = (now - pet.last_played).total_seconds() / 3600
+        if hours_since_play > 24:  # If not played with for over 24 hours
+            happiness_decrease = int((hours_since_play - 24) * 2)
+            pet.happiness = max(0, pet.happiness - happiness_decrease)
+
+def get_time_until_next_feed(pet):
+    """Get time until pet can be fed again"""
+    if not pet.last_fed:
+        return 0
+    
+    time_since_feed = datetime.utcnow() - pet.last_fed
+    cooldown_minutes = 30
+    remaining_minutes = cooldown_minutes - int(time_since_feed.total_seconds() / 60)
+    
+    return max(0, remaining_minutes)
+
+def get_time_until_next_play(pet):
+    """Get time until pet can play again"""
+    if not pet.last_played:
+        return 0
+    
+    time_since_play = datetime.utcnow() - pet.last_played
+    cooldown_minutes = 15
+    remaining_minutes = cooldown_minutes - int(time_since_play.total_seconds() / 60)
+    
+    return max(0, remaining_minutes)
+
+def get_available_accessories(pet_level):
+    """Get accessories available for purchase based on pet level"""
+    accessories = [
+        {'name': 'Sparkly Collar', 'cost': 20, 'level_requirement': 1, 'description': 'A beautiful collar that sparkles in the light!'},
+        {'name': 'Magic Hat', 'cost': 35, 'level_requirement': 3, 'description': 'A hat that makes your pet look wise and magical!'},
+        {'name': 'Wings of Wonder', 'cost': 50, 'level_requirement': 5, 'description': 'Magnificent wings that let your pet soar!'},
+        {'name': 'Crown of Wisdom', 'cost': 75, 'level_requirement': 7, 'description': 'A golden crown for the smartest pets!'},
+        {'name': 'Armor of Courage', 'cost': 100, 'level_requirement': 10, 'description': 'Protective armor for brave adventures!'},
+        {'name': 'Cape of Heroes', 'cost': 150, 'level_requirement': 15, 'description': 'A heroic cape that flows in the wind!'},
+        {'name': 'Legendary Aura', 'cost': 200, 'level_requirement': 20, 'description': 'A mystical aura that surrounds legendary pets!'}
+    ]
+    
+    return [acc for acc in accessories if acc['level_requirement'] <= pet_level]
+
+def get_available_toys(pet_level):
+    """Get toys available for purchase based on pet level"""
+    toys = [
+        {'name': 'Rainbow Ball', 'cost': 15, 'level_requirement': 1, 'description': 'A bouncy ball that changes colors!'},
+        {'name': 'Glowing Stick', 'cost': 25, 'level_requirement': 2, 'description': 'A stick that glows with magical light!'},
+        {'name': 'Puzzle Cube', 'cost': 40, 'level_requirement': 4, 'description': 'A challenging puzzle that boosts intelligence!'},
+        {'name': 'Melody Box', 'cost': 60, 'level_requirement': 6, 'description': 'A music box that plays beautiful tunes!'},
+        {'name': 'Time Crystal', 'cost': 85, 'level_requirement': 8, 'description': 'A crystal that shows glimpses of the future!'},
+        {'name': 'Dream Catcher', 'cost': 120, 'level_requirement': 12, 'description': 'Catches nightmares and brings sweet dreams!'},
+        {'name': 'Infinity Stone', 'cost': 180, 'level_requirement': 18, 'description': 'A powerful stone with infinite possibilities!'}
+    ]
+    
+    return [toy for toy in toys if toy['level_requirement'] <= pet_level]

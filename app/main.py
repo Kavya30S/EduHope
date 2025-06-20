@@ -1,424 +1,469 @@
-from flask import Flask, render_template, request, redirect, url_for, session, jsonify, flash
+from flask import Flask, render_template, request, jsonify, session, redirect, url_for
 from flask_sqlalchemy import SQLAlchemy
-from flask_login import LoginManager, login_user, logout_user, login_required, current_user
+from flask_login import LoginManager, login_required, current_user
 from flask_socketio import SocketIO, emit, join_room, leave_room
-from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, timedelta
 import os
-import random
 import json
+import random
+import logging
+from werkzeug.security import generate_password_hash, check_password_hash
 
 # Initialize Flask app
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'eduhope-secret-key-2025'
+app.config['SECRET_KEY'] = 'eduhope_magical_learning_adventure_2024'
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///eduhope.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 # Initialize extensions
 db = SQLAlchemy(app)
 login_manager = LoginManager(app)
-login_manager.login_view = 'login'
-login_manager.login_message = 'Please log in to access EduHope!'
-socketio = SocketIO(app, cors_allowed_origins="*")
+login_manager.login_view = 'auth.login'
+login_manager.login_message = "🌟 Let's continue your magical learning journey!"
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
 
-# Import all models
-from models.user import User
-from models.pet import Pet
-from models.lesson import Lesson
-from models.achievement import Achievement
-from models.story import Story
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Import models and routes
+from models.user import User, LearningSession, UserProgress
+from models.pet import Pet, PetAccessory, UserPet
+from models.lesson import Lesson, Quiz, UserQuizAttempt
+from models.achievement import Achievement, UserAchievement
+from routes import auth, education, support, social, teacher, pet_companion, storytelling, language_games
+from services.llm_service import LLMService
+from services.voice_service import VoiceService
+from services.sentiment_service import SentimentService
+from assessment_games.knowledge_assessment import KnowledgeAssessment
+from assessment_games.emotional_assessment import EmotionalAssessment
+
+# Register blueprints
+app.register_blueprint(auth.bp)
+app.register_blueprint(education.bp)
+app.register_blueprint(support.bp)
+app.register_blueprint(social.bp)
+app.register_blueprint(teacher.bp)
+app.register_blueprint(pet_companion.bp)
+app.register_blueprint(storytelling.bp)
+app.register_blueprint(language_games.bp)
+
+# Initialize services
+llm_service = LLMService()
+voice_service = VoiceService()
+sentiment_service = SentimentService()
+knowledge_assessment = KnowledgeAssessment()
+emotional_assessment = EmotionalAssessment()
 
 @login_manager.user_loader
 def load_user(user_id):
     return User.query.get(int(user_id))
 
-# Routes
+# Real-time learning analytics
+class RealTimeLearning:
+    def __init__(self):
+        self.user_sessions = {}
+        self.learning_patterns = {}
+    
+    def track_interaction(self, user_id, action, content_type, performance=None):
+        """Track user interactions for real-time personalization"""
+        if user_id not in self.user_sessions:
+            self.user_sessions[user_id] = {
+                'start_time': datetime.now(),
+                'interactions': [],
+                'performance_metrics': {},
+                'learning_style': 'visual',  # Default
+                'attention_span': 300,  # seconds
+                'difficulty_preference': 'medium'
+            }
+        
+        interaction = {
+            'timestamp': datetime.now(),
+            'action': action,
+            'content_type': content_type,
+            'performance': performance
+        }
+        
+        self.user_sessions[user_id]['interactions'].append(interaction)
+        self._analyze_learning_pattern(user_id)
+        self._adapt_content_difficulty(user_id)
+        
+        # Save to database
+        session_record = LearningSession(
+            user_id=user_id,
+            action=action,
+            content_type=content_type,
+            performance=performance,
+            timestamp=datetime.now()
+        )
+        db.session.add(session_record)
+        db.session.commit()
+    
+    def _analyze_learning_pattern(self, user_id):
+        """Analyze user's learning patterns in real-time"""
+        session = self.user_sessions[user_id]
+        interactions = session['interactions']
+        
+        if len(interactions) < 5:
+            return
+        
+        # Analyze response times
+        response_times = []
+        for i in range(1, len(interactions)):
+            if interactions[i-1]['action'] == 'question_presented' and interactions[i]['action'] == 'answer_submitted':
+                response_time = (interactions[i]['timestamp'] - interactions[i-1]['timestamp']).total_seconds()
+                response_times.append(response_time)
+        
+        if response_times:
+            avg_response_time = sum(response_times) / len(response_times)
+            session['attention_span'] = min(600, max(60, avg_response_time * 10))
+        
+        # Analyze performance patterns
+        recent_performances = [i['performance'] for i in interactions[-10:] if i['performance'] is not None]
+        if recent_performances:
+            avg_performance = sum(recent_performances) / len(recent_performances)
+            if avg_performance > 0.8:
+                session['difficulty_preference'] = 'hard'
+            elif avg_performance < 0.6:
+                session['difficulty_preference'] = 'easy'
+            else:
+                session['difficulty_preference'] = 'medium'
+    
+    def _adapt_content_difficulty(self, user_id):
+        """Adapt content difficulty based on performance"""
+        session = self.user_sessions[user_id]
+        user = User.query.get(user_id)
+        
+        if user:
+            user.learning_style = session['learning_style']
+            user.attention_span = session['attention_span']
+            user.difficulty_preference = session['difficulty_preference']
+            db.session.commit()
+    
+    def get_personalized_content(self, user_id, content_type):
+        """Get personalized content recommendations"""
+        if user_id not in self.user_sessions:
+            return self._get_default_content(content_type)
+        
+        session = self.user_sessions[user_id]
+        difficulty = session['difficulty_preference']
+        learning_style = session['learning_style']
+        
+        # Query database for appropriate content
+        query = Lesson.query.filter_by(content_type=content_type, difficulty=difficulty)
+        
+        if learning_style == 'visual':
+            query = query.filter(Lesson.has_visuals == True)
+        elif learning_style == 'auditory':
+            query = query.filter(Lesson.has_audio == True)
+        elif learning_style == 'kinesthetic':
+            query = query.filter(Lesson.has_interactive_elements == True)
+        
+        return query.all()
+    
+    def _get_default_content(self, content_type):
+        """Get default content for new users"""
+        return Lesson.query.filter_by(content_type=content_type, difficulty='easy').limit(5).all()
+
+# Initialize real-time learning
+real_time_learning = RealTimeLearning()
+
 @app.route('/')
 def index():
+    """Magical landing page for children"""
     if current_user.is_authenticated:
         return redirect(url_for('dashboard'))
-    return render_template('index.html')
-
-@app.route('/login', methods=['GET', 'POST'])
-def login():
-    if request.method == 'POST':
-        username = request.form['username']
-        password = request.form['password']
-        user = User.query.filter_by(username=username).first()
-        
-        if user and check_password_hash(user.password_hash, password):
-            login_user(user)
-            
-            # Check if user needs to select a pet
-            if not user.pet:
-                return redirect(url_for('select_pet'))
-            
-            return redirect(url_for('dashboard'))
-        else:
-            flash('Invalid username or password!')
     
-    return render_template('login.html')
-
-@app.route('/register', methods=['GET', 'POST'])
-def register():
-    if request.method == 'POST':
-        username = request.form['username']
-        password = request.form['password']
-        age = int(request.form['age'])
-        language = request.form['language']
-        
-        # Check if username exists
-        if User.query.filter_by(username=username).first():
-            flash('Username already exists!')
-            return render_template('register.html')
-        
-        # Create new user
-        user = User(
-            username=username,
-            password_hash=generate_password_hash(password),
-            age=age,
-            language=language
-        )
-        
-        db.session.add(user)
-        db.session.commit()
-        
-        login_user(user)
-        return redirect(url_for('assessment_games'))
-    
-    return render_template('register.html')
-
-@app.route('/assessment_games')
-@login_required
-def assessment_games():
-    return render_template('assessment_games.html')
-
-@app.route('/select_pet')
-@login_required
-def select_pet():
-    if current_user.pet:
-        return redirect(url_for('dashboard'))
-    
-    # Available pets with their characteristics
-    available_pets = [
-        {'id': 'dragon', 'name': 'Dragon', 'description': 'Fierce and loyal, dragons love solving math puzzles!', 'image': 'dragon.png'},
-        {'id': 'unicorn', 'name': 'Unicorn', 'description': 'Magical and gentle, unicorns excel at language learning!', 'image': 'unicorn.png'},
-        {'id': 'robot', 'name': 'Robot', 'description': 'Smart and curious, robots are perfect for science adventures!', 'image': 'robot.png'},
-        {'id': 'phoenix', 'name': 'Phoenix', 'description': 'Wise and creative, phoenixes love storytelling!', 'image': 'phoenix.png'},
-        {'id': 'cat', 'name': 'Magic Cat', 'description': 'Playful and mysterious, cats are great at all subjects!', 'image': 'cat.png'}
-    ]
-    
-    return render_template('select_pet.html', pets=available_pets)
-
-@app.route('/choose_pet', methods=['POST'])
-@login_required
-def choose_pet():
-    pet_type = request.form['pet_type']
-    pet_name = request.form['pet_name']
-    
-    # Create new pet for user
-    pet = Pet(
-        user_id=current_user.id,
-        pet_type=pet_type,
-        name=pet_name,
-        happiness=100,
-        hunger=50,
-        energy=100,
-        level=1,
-        experience=0
-    )
-    
-    db.session.add(pet)
-    db.session.commit()
-    
-    return redirect(url_for('dashboard'))
+    return render_template('index.html', 
+                         magical_quotes=[
+                             "🌟 Every day is a new adventure in learning!",
+                             "🦄 Your imagination is your superpower!",
+                             "🌈 Learning is like collecting magical treasures!",
+                             "⭐ You're braver than you believe and smarter than you think!"
+                         ])
 
 @app.route('/dashboard')
 @login_required
 def dashboard():
-    user_stats = {
-        'total_points': current_user.points,
-        'level': current_user.level,
-        'achievements_count': len(current_user.achievements),
-        'lessons_completed': current_user.lessons_completed
+    """Personalized dashboard with real-time adaptations"""
+    user_pet = UserPet.query.filter_by(user_id=current_user.id, is_active=True).first()
+    recent_achievements = UserAchievement.query.filter_by(user_id=current_user.id)\
+                            .order_by(UserAchievement.earned_date.desc()).limit(3).all()
+    
+    # Get personalized content recommendations
+    recommended_lessons = real_time_learning.get_personalized_content(current_user.id, 'lesson')
+    
+    # Calculate learning streak
+    learning_streak = current_user.calculate_learning_streak()
+    
+    # Get mood-based recommendations
+    current_mood = session.get('current_mood', 'happy')
+    mood_activities = get_mood_based_activities(current_mood)
+    
+    return render_template('dashboard.html',
+                         user_pet=user_pet,
+                         recent_achievements=recent_achievements,
+                         recommended_lessons=recommended_lessons,
+                         learning_streak=learning_streak,
+                         mood_activities=mood_activities,
+                         current_mood=current_mood)
+
+def get_mood_based_activities(mood):
+    """Get activities based on child's emotional state"""
+    activities = {
+        'happy': [
+            {'name': 'Math Adventure', 'icon': '🧮', 'type': 'lesson'},
+            {'name': 'Story Creation', 'icon': '📚', 'type': 'creative'},
+            {'name': 'Pet Playground', 'icon': '🐾', 'type': 'pet'}
+        ],
+        'sad': [
+            {'name': 'Comfort Stories', 'icon': '🤗', 'type': 'story'},
+            {'name': 'Breathing Buddy', 'icon': '🌸', 'type': 'wellness'},
+            {'name': 'Pet Cuddles', 'icon': '💝', 'type': 'pet'}
+        ],
+        'excited': [
+            {'name': 'Challenge Mode', 'icon': '⚡', 'type': 'challenge'},
+            {'name': 'Group Adventures', 'icon': '👥', 'type': 'social'},
+            {'name': 'Pet Training', 'icon': '🏆', 'type': 'pet'}
+        ],
+        'anxious': [
+            {'name': 'Calm Corners', 'icon': '🧘', 'type': 'wellness'},
+            {'name': 'Easy Puzzles', 'icon': '🧩', 'type': 'gentle'},
+            {'name': 'Pet Meditation', 'icon': '🕯️', 'type': 'pet'}
+        ]
     }
-    
-    # Get pet stats if exists
-    pet_stats = None
-    if current_user.pet:
-        pet_stats = {
-            'name': current_user.pet.name,
-            'type': current_user.pet.pet_type,
-            'level': current_user.pet.level,
-            'happiness': current_user.pet.happiness,
-            'hunger': current_user.pet.hunger,
-            'energy': current_user.pet.energy,
-            'experience': current_user.pet.experience
-        }
-    
-    return render_template('dashboard.html', user_stats=user_stats, pet_stats=pet_stats)
+    return activities.get(mood, activities['happy'])
 
-@app.route('/pet')
+@app.route('/api/track_interaction', methods=['POST'])
 @login_required
-def pet_page():
-    if not current_user.pet:
-        return redirect(url_for('select_pet'))
+def track_interaction():
+    """API endpoint for tracking user interactions"""
+    data = request.get_json()
     
-    pet = current_user.pet
-    return render_template('pet.html', pet=pet)
-
-@app.route('/feed_pet', methods=['POST'])
-@login_required
-def feed_pet():
-    if not current_user.pet:
-        return jsonify({'error': 'No pet found'}), 400
-    
-    pet = current_user.pet
-    
-    # Check if user has enough points
-    food_cost = 10
-    if current_user.points < food_cost:
-        return jsonify({'error': 'Not enough points to feed pet'}), 400
-    
-    # Feed the pet
-    pet.hunger = min(100, pet.hunger + 20)
-    pet.happiness = min(100, pet.happiness + 10)
-    pet.last_fed = datetime.utcnow()
-    
-    # Deduct points
-    current_user.points -= food_cost
-    
-    # Add experience
-    pet.experience += 5
-    if pet.experience >= pet.level * 100:
-        pet.level += 1
-        pet.experience = 0
-    
-    db.session.commit()
-    
-    return jsonify({
-        'success': True,
-        'pet': {
-            'hunger': pet.hunger,
-            'happiness': pet.happiness,
-            'level': pet.level,
-            'experience': pet.experience
-        },
-        'user_points': current_user.points
-    })
-
-@app.route('/play_with_pet', methods=['POST'])
-@login_required
-def play_with_pet():
-    if not current_user.pet:
-        return jsonify({'error': 'No pet found'}), 400
-    
-    pet = current_user.pet
-    
-    # Check if pet has enough energy
-    if pet.energy < 20:
-        return jsonify({'error': 'Pet is too tired to play'}), 400
-    
-    # Play with pet
-    pet.happiness = min(100, pet.happiness + 15)
-    pet.energy = max(0, pet.energy - 20)
-    pet.last_played = datetime.utcnow()
-    
-    # Add experience
-    pet.experience += 10
-    if pet.experience >= pet.level * 100:
-        pet.level += 1
-        pet.experience = 0
-    
-    db.session.commit()
-    
-    return jsonify({
-        'success': True,
-        'pet': {
-            'happiness': pet.happiness,
-            'energy': pet.energy,
-            'level': pet.level,
-            'experience': pet.experience
-        }
-    })
-
-@app.route('/lessons')
-@login_required
-def lessons():
-    # Get lessons based on user's age and level
-    user_lessons = Lesson.query.filter(
-        Lesson.min_age <= current_user.age,
-        Lesson.max_age >= current_user.age
-    ).all()
-    
-    return render_template('lessons.html', lessons=user_lessons)
-
-@app.route('/lesson/<int:lesson_id>')
-@login_required
-def lesson_detail(lesson_id):
-    lesson = Lesson.query.get_or_404(lesson_id)
-    return render_template('lesson_detail.html', lesson=lesson)
-
-@app.route('/complete_lesson', methods=['POST'])
-@login_required
-def complete_lesson():
-    lesson_id = request.json['lesson_id']
-    score = request.json['score']
-    
-    # Award points based on score
-    points_earned = score * 10
-    current_user.points += points_earned
-    current_user.lessons_completed += 1
-    
-    # Feed pet automatically on lesson completion
-    if current_user.pet:
-        current_user.pet.hunger = min(100, current_user.pet.hunger + 10)
-        current_user.pet.happiness = min(100, current_user.pet.happiness + 5)
-        current_user.pet.experience += points_earned // 2
-        
-        if current_user.pet.experience >= current_user.pet.level * 100:
-            current_user.pet.level += 1
-            current_user.pet.experience = 0
-    
-    db.session.commit()
-    
-    return jsonify({
-        'success': True,
-        'points_earned': points_earned,
-        'total_points': current_user.points
-    })
-
-@app.route('/games')
-@login_required
-def games():
-    return render_template('games.html')
-
-@app.route('/math_maze')
-@login_required
-def math_maze():
-    return render_template('math_maze.html')
-
-@app.route('/language_games')
-@login_required
-def language_games():
-    return render_template('language_games.html')
-
-@app.route('/storytelling')
-@login_required
-def storytelling():
-    stories = Story.query.filter_by(is_public=True).order_by(Story.created_at.desc()).limit(10).all()
-    return render_template('storytelling.html', stories=stories)
-
-@app.route('/create_story', methods=['POST'])
-@login_required
-def create_story():
-    title = request.json['title']
-    content = request.json['content']
-    
-    story = Story(
-        title=title,
-        content=content,
-        author_id=current_user.id,
-        is_public=True
+    real_time_learning.track_interaction(
+        user_id=current_user.id,
+        action=data.get('action'),
+        content_type=data.get('content_type'),
+        performance=data.get('performance')
     )
     
-    db.session.add(story)
-    db.session.commit()
-    
-    # Award points for creativity
-    current_user.points += 25
-    
-    # Feed pet for creative activity
-    if current_user.pet:
-        current_user.pet.happiness = min(100, current_user.pet.happiness + 10)
-        current_user.pet.experience += 15
-        
-        if current_user.pet.experience >= current_user.pet.level * 100:
-            current_user.pet.level += 1
-            current_user.pet.experience = 0
-    
-    db.session.commit()
-    
-    return jsonify({'success': True, 'story_id': story.id})
+    return jsonify({'status': 'tracked'})
 
-@app.route('/achievements')
+@app.route('/api/personalized_content/<content_type>')
 @login_required
-def achievements():
-    user_achievements = current_user.achievements
-    return render_template('achievements.html', achievements=user_achievements)
+def get_personalized_content_api(content_type):
+    """API endpoint for getting personalized content"""
+    content = real_time_learning.get_personalized_content(current_user.id, content_type)
+    
+    return jsonify([{
+        'id': item.id,
+        'title': item.title,
+        'description': item.description,
+        'difficulty': item.difficulty,
+        'estimated_time': item.estimated_time
+    } for item in content])
 
-@app.route('/profile')
-@login_required
-def profile():
-    return render_template('profile.html')
-
-@app.route('/logout')
-@login_required
-def logout():
-    logout_user()
-    return redirect(url_for('index'))
-
-# SocketIO events for real-time features
-@socketio.on('join_room')
-def handle_join_room(data):
-    room = data['room']
+# Socket.IO events for real-time features
+@socketio.on('join_learning_session')
+def on_join_learning_session(data):
+    """Handle user joining learning session"""
+    room = f"learning_{current_user.id}"
     join_room(room)
-    emit('status', {'msg': f'{current_user.username} has joined the room.'}, room=room)
+    emit('session_joined', {'room': room})
 
-@socketio.on('leave_room')
-def handle_leave_room(data):
-    room = data['room']
-    leave_room(room)
-    emit('status', {'msg': f'{current_user.username} has left the room.'}, room=room)
+@socketio.on('learning_progress')
+def on_learning_progress(data):
+    """Handle real-time learning progress updates"""
+    real_time_learning.track_interaction(
+        user_id=current_user.id,
+        action=data.get('action'),
+        content_type=data.get('content_type'),
+        performance=data.get('performance')
+    )
+    
+    # Send adaptive feedback
+    room = f"learning_{current_user.id}"
+    emit('adaptive_feedback', {
+        'encouragement': get_adaptive_encouragement(data.get('performance')),
+        'next_suggestion': get_next_suggestion(current_user.id)
+    }, room=room)
 
-@socketio.on('story_update')
-def handle_story_update(data):
-    room = data['room']
-    content = data['content']
-    emit('story_content', {'content': content, 'author': current_user.username}, room=room)
+def get_adaptive_encouragement(performance):
+    """Get encouraging messages based on performance"""
+    if performance and performance > 0.8:
+        return random.choice([
+            "🌟 You're absolutely brilliant!",
+            "🦄 That was magical! Keep going!",
+            "⭐ You're a learning superstar!",
+            "🌈 Amazing work, champion!"
+        ])
+    elif performance and performance > 0.6:
+        return random.choice([
+            "🌱 Great effort! You're growing stronger!",
+            "🎯 Good job! Keep practicing!",
+            "💪 You're doing wonderful!",
+            "🌟 Nice work! Learning takes courage!"
+        ])
+    else:
+        return random.choice([
+            "🤗 It's okay! Every mistake helps us learn!",
+            "🌈 You're brave for trying! Let's try again!",
+            "💝 Learning is a journey, not a race!",
+            "⭐ I believe in you! You've got this!"
+        ])
 
-# Initialize database
-def init_db():
-    with app.app_context():
-        db.create_all()
-        
-        # Create sample lessons if they don't exist
-        if not Lesson.query.first():
-            sample_lessons = [
-                Lesson(
-                    title="Basic Math - Addition",
-                    description="Learn to add numbers with fun examples!",
-                    content="Let's learn addition with colorful examples and pet rewards!",
-                    subject="Math",
-                    min_age=5,
-                    max_age=8,
-                    difficulty=1
-                ),
-                Lesson(
-                    title="English Alphabet Adventure",
-                    description="Explore letters with your pet companion!",
-                    content="Join your pet on an alphabet adventure!",
-                    subject="English",
-                    min_age=4,
-                    max_age=7,
-                    difficulty=1
-                ),
-                Lesson(
-                    title="Science Wonders",
-                    description="Discover amazing science facts!",
-                    content="Explore the world of science with interactive experiments!",
-                    subject="Science",
-                    min_age=6,
-                    max_age=10,
-                    difficulty=2
-                )
-            ]
-            
-            for lesson in sample_lessons:
-                db.session.add(lesson)
-            
-            db.session.commit()
+def get_next_suggestion(user_id):
+    """Get next learning suggestion"""
+    suggestions = real_time_learning.get_personalized_content(user_id, 'lesson')
+    if suggestions:
+        return {
+            'title': suggestions[0].title,
+            'description': suggestions[0].description,
+            'url': f'/lesson/{suggestions[0].id}'
+        }
+    return None
+
+# Error handlers
+@app.errorhandler(404)
+def not_found(error):
+    return render_template('error.html', 
+                         error_code=404,
+                         error_message="🔍 Oops! This magical page seems to be hiding!",
+                         suggestion="Let's go back to your dashboard and continue learning!"), 404
+
+@app.errorhandler(500)
+def internal_error(error):
+    db.session.rollback()
+    return render_template('error.html',
+                         error_code=500,
+                         error_message="🛠️ Our magical workshop is having a tiny problem!",
+                         suggestion="Don't worry! Our coding wizards are fixing it. Try again in a moment!"), 500
+
+# Database initialization
+@app.before_first_request
+def create_tables():
+    """Initialize database tables and sample data"""
+    db.create_all()
+    
+    # Create sample pets if not exist
+    if Pet.query.count() == 0:
+        create_fantasy_pets()
+    
+    # Create sample lessons if not exist
+    if Lesson.query.count() == 0:
+        create_sample_lessons()
+    
+    # Create achievements if not exist
+    if Achievement.query.count() == 0:
+        create_achievements()
+
+def create_fantasy_pets():
+    """Create 20+ fantasy pets for children to choose from"""
+    fantasy_pets = [
+        {'name': 'Sparkle Dragon', 'type': 'dragon', 'description': 'A magical dragon that breathes rainbow sparkles!', 'emoji': '🐲', 'rarity': 'legendary'},
+        {'name': 'Crystal Unicorn', 'type': 'unicorn', 'description': 'A beautiful unicorn with a crystal horn that grants wishes!', 'emoji': '🦄', 'rarity': 'legendary'},
+        {'name': 'Cosmic Phoenix', 'type': 'phoenix', 'description': 'A phoenix that flies among the stars!', 'emoji': '🔥', 'rarity': 'legendary'},
+        {'name': 'Rainbow Butterfly', 'type': 'butterfly', 'description': 'A butterfly with wings that shimmer like rainbows!', 'emoji': '🦋', 'rarity': 'rare'},
+        {'name': 'Cloud Elephant', 'type': 'elephant', 'description': 'A fluffy elephant that floats on clouds!', 'emoji': '☁️', 'rarity': 'rare'},
+        {'name': 'Starlight Fox', 'type': 'fox', 'description': 'A fox with fur that twinkles like stars!', 'emoji': '🦊', 'rarity': 'rare'},
+        {'name': 'Ocean Dolphin', 'type': 'dolphin', 'description': 'A wise dolphin from the deepest oceans!', 'emoji': '🐬', 'rarity': 'common'},
+        {'name': 'Forest Wolf', 'type': 'wolf', 'description': 'A loyal wolf guardian of magical forests!', 'emoji': '🐺', 'rarity': 'common'},
+        {'name': 'Golden Eagle', 'type': 'eagle', 'description': 'A majestic eagle with golden feathers!', 'emoji': '🦅', 'rarity': 'common'},
+        {'name': 'Crystal Turtle', 'type': 'turtle', 'description': 'An ancient turtle with a crystal shell!', 'emoji': '🐢', 'rarity': 'rare'},
+        {'name': 'Fire Salamander', 'type': 'salamander', 'description': 'A salamander that controls magical flames!', 'emoji': '🦎', 'rarity': 'rare'},
+        {'name': 'Ice Penguin', 'type': 'penguin', 'description': 'A penguin from the magical ice kingdoms!', 'emoji': '🐧', 'rarity': 'common'},
+        {'name': 'Thunder Lion', 'type': 'lion', 'description': 'A brave lion with a thunderous roar!', 'emoji': '🦁', 'rarity': 'rare'},
+        {'name': 'Wind Hawk', 'type': 'hawk', 'description': 'A swift hawk that rides the wind!', 'emoji': '🦅', 'rarity': 'common'},
+        {'name': 'Dream Owl', 'type': 'owl', 'description': 'A wise owl that protects dreams!', 'emoji': '🦉', 'rarity': 'rare'},
+        {'name': 'Moon Rabbit', 'type': 'rabbit', 'description': 'A rabbit that hops on moonbeams!', 'emoji': '🐰', 'rarity': 'common'},
+        {'name': 'Solar Bear', 'type': 'bear', 'description': 'A cuddly bear powered by sunshine!', 'emoji': '🐻', 'rarity': 'common'},
+        {'name': 'Mystic Cat', 'type': 'cat', 'description': 'A mysterious cat with magical powers!', 'emoji': '🐱', 'rarity': 'common'},
+        {'name': 'Cyber Robot', 'type': 'robot', 'description': 'A friendly robot from the future!', 'emoji': '🤖', 'rarity': 'rare'},
+        {'name': 'Nature Fairy', 'type': 'fairy', 'description': 'A tiny fairy that cares for nature!', 'emoji': '🧚', 'rarity': 'legendary'},
+        {'name': 'Space Alien', 'type': 'alien', 'description': 'A curious alien explorer from distant stars!', 'emoji': '👽', 'rarity': 'rare'},
+        {'name': 'Magic Mushroom', 'type': 'mushroom', 'description': 'A sentient mushroom from enchanted forests!', 'emoji': '🍄', 'rarity': 'common'},
+        {'name': 'Shadow Ninja', 'type': 'ninja', 'description': 'A stealthy ninja companion!', 'emoji': '🥷', 'rarity': 'rare'},
+        {'name': 'Gem Collector', 'type': 'collector', 'description': 'A creature that loves shiny gems!', 'emoji': '💎', 'rarity': 'common'}
+    ]
+    
+    for pet_data in fantasy_pets:
+        pet = Pet(**pet_data)
+        db.session.add(pet)
+    
+    db.session.commit()
+
+def create_sample_lessons():
+    """Create sample lessons for different subjects"""
+    lessons = [
+        {
+            'title': '🧮 Magic Numbers Adventure',
+            'description': 'Learn addition with magical creatures!',
+            'content_type': 'math',
+            'difficulty': 'easy',
+            'age_group': '5-7',
+            'estimated_time': 15,
+            'has_visuals': True,
+            'has_audio': True,
+            'has_interactive_elements': True,
+            'content': json.dumps({
+                'introduction': 'Welcome to the magical numbers kingdom!',
+                'activities': [
+                    {'type': 'interactive', 'title': 'Count the Dragons', 'description': 'Help the dragons find their treasure!'},
+                    {'type': 'quiz', 'question': 'How many unicorns do you see?', 'options': ['2', '3', '4'], 'correct': 1}
+                ]
+            })
+        },
+        {
+            'title': '📚 Story Time Adventures',
+            'description': 'Create magical stories with friends!',
+            'content_type': 'language',
+            'difficulty': 'medium',
+            'age_group': '6-9',
+            'estimated_time': 20,
+            'has_visuals': True,
+            'has_audio': True,
+            'has_interactive_elements': True,
+            'content': json.dumps({
+                'introduction': 'Every story begins with once upon a time...',
+                'prompts': [
+                    'A dragon who was afraid of flying...',
+                    'A princess who loved to code...',
+                    'A robot who wanted to paint...'
+                ]
+            })
+        }
+    ]
+    
+    for lesson_data in lessons:
+        lesson = Lesson(**lesson_data)
+        db.session.add(lesson)
+    
+    db.session.commit()
+
+def create_achievements():
+    """Create achievement badges for gamification"""
+    achievements = [
+        {'name': 'First Steps', 'description': 'Completed your first lesson!', 'icon': '👶', 'points': 10},
+        {'name': 'Pet Parent', 'description': 'Adopted your first magical pet!', 'icon': '🏠', 'points': 20},
+        {'name': 'Quick Learner', 'description': 'Completed 5 lessons in one day!', 'icon': '⚡', 'points': 50},
+        {'name': 'Story Master', 'description': 'Created 10 amazing stories!', 'icon': '📖', 'points': 100},
+        {'name': 'Math Wizard', 'description': 'Solved 50 math problems!', 'icon': '🧙', 'points': 75},
+        {'name': 'Caring Friend', 'description': 'Helped 5 friends with their pets!', 'icon': '💝', 'points': 40},
+        {'name': 'Explorer', 'description': 'Tried all different types of lessons!', 'icon': '🗺️', 'points': 60},
+        {'name': 'Champion', 'description': 'Maintained a 30-day learning streak!', 'icon': '🏆', 'points': 200}
+    ]
+    
+    for achievement_data in achievements:
+        achievement = Achievement(**achievement_data)
+        db.session.add(achievement)
+    
+    db.session.commit()
 
 if __name__ == '__main__':
-    init_db()
+    with app.app_context():
+        create_tables()
+    
+    print("🌟 EduHope Magical Learning Platform Starting! 🌟")
+    print("🦄 Where every child's learning journey becomes an adventure! 🦄")
+    
     socketio.run(app, debug=True, host='0.0.0.0', port=5000)

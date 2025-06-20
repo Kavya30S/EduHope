@@ -1,0 +1,634 @@
+{% extends "base.html" %}
+
+{% block title %}Collaborative Storytelling - EduHope{% endblock %}
+
+{% block content %}
+<div class="storytelling-container">
+    <div class="storytelling-header">
+        <h1 class="rainbow-text">📚 Story Magic Workshop 📚</h1>
+        <div class="story-stats">
+            <span class="stat">🏆 Stories Created: {{ current_user.stories_created }}</span>
+            <span class="stat">⭐ Story Points: {{ current_user.story_points }}</span>
+            <span class="stat">🎖️ Storyteller Level: {{ current_user.storyteller_level }}</span>
+        </div>
+    </div>
+
+    <div class="main-content">
+        <div class="story-area">
+            <div class="story-controls">
+                <div class="story-mode-selector">
+                    <button class="mode-btn active" data-mode="collaborative" onclick="selectMode('collaborative')">
+                        👥 Group Story
+                    </button>
+                    <button class="mode-btn" data-mode="solo" onclick="selectMode('solo')">
+                        ✍️ My Story
+                    </button>
+                    <button class="mode-btn" data-mode="guided" onclick="selectMode('guided')">
+                        🤖 AI Helper
+                    </button>
+                </div>
+                
+                <div class="story-themes">
+                    <select id="themeSelector" onchange="changeTheme()">
+                        <option value="adventure">🗺️ Adventure</option>
+                        <option value="fantasy">🦄 Fantasy</option>
+                        <option value="mystery">🕵️ Mystery</option>
+                        <option value="friendship">👫 Friendship</option>
+                        <option value="space">🚀 Space Adventure</option>
+                        <option value="underwater">🐠 Ocean Quest</option>
+                        <option value="jungle">🌴 Jungle Expedition</option>
+                        <option value="magical">✨ Magical World</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="story-canvas">
+                <div class="story-display" id="storyDisplay">
+                    <div class="story-title" id="storyTitle">
+                        <input type="text" placeholder="✨ Give your story a magical title..." id="titleInput" maxlength="50">
+                    </div>
+                    
+                    <div class="story-content" id="storyContent">
+                        <div class="story-paragraph starter-paragraph">
+                            <div class="paragraph-author">Story Starter</div>
+                            <div class="paragraph-text" id="starterText">
+                                Once upon a time, in a land filled with wonder and magic...
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="story-input-area">
+                        <div class="current-writer" id="currentWriter">
+                            Your turn to add to the story! 🖋️
+                        </div>
+                        <textarea id="storyInput" placeholder="Continue the adventure... What happens next?" maxlength="200"></textarea>
+                        <div class="input-controls">
+                            <div class="character-count">
+                                <span id="charCount">0</span>/200 characters
+                            </div>
+                            <div class="input-buttons">
+                                <button class="suggestion-btn" onclick="getAISuggestion()">💡 Get Idea</button>
+                                <button class="add-btn" onclick="addToParagraph()" id="addBtn">➕ Add to Story</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="story-sidebar">
+                    <div class="participants-panel">
+                        <h3>👥 Story Writers</h3>
+                        <div class="participants-list" id="participantsList">
+                            <div class="participant active">
+                                <div class="participant-avatar">{{ current_user.avatar_emoji }}</div>
+                                <div class="participant-name">{{ current_user.username }}</div>
+                                <div class="participant-status">Writing...</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="story-tools">
+                        <h3>🛠️ Story Tools</h3>
+                        <div class="tools-grid">
+                            <button class="tool-btn" onclick="addCharacter()">
+                                <span class="tool-icon">👤</span>
+                                <span class="tool-text">Add Character</span>
+                            </button>
+                            <button class="tool-btn" onclick="addLocation()">
+                                <span class="tool-icon">🏰</span>
+                                <span class="tool-text">New Place</span>
+                            </button>
+                            <button class="tool-btn" onclick="addTwist()">
+                                <span class="tool-icon">🌪️</span>
+                                <span class="tool-text">Plot Twist</span>
+                            </button>
+                            <button class="tool-btn" onclick="addDialogue()">
+                                <span class="tool-icon">💬</span>
+                                <span class="tool-text">Dialogue</span>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="story-elements">
+                        <h3>📝 Story Elements</h3>
+                        <div class="elements-list" id="storyElements">
+                            <div class="element">
+                                <span class="element-type">Characters:</span>
+                                <span class="element-content" id="charactersElement">None yet</span>
+                            </div>
+                            <div class="element">
+                                <span class="element-type">Locations:</span>
+                                <span class="element-content" id="locationsElement">Magical land</span>
+                            </div>
+                            <div class="element">
+                                <span class="element-type">Magic Items:</span>
+                                <span class="element-content" id="itemsElement">None yet</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="story-gallery">
+            <h3>🏆 Hall of Fame Stories</h3>
+            <div class="stories-grid" id="storiesGrid">
+                {% for story in featured_stories %}
+                <div class="story-card" onclick="readStory('{{ story.id }}')">
+                    <div class="story-card-header">
+                        <h4>{{ story.title }}</h4>
+                        <div class="story-rating">
+                            {% for i in range(story.rating) %}⭐{% endfor %}
+                        </div>
+                    </div>
+                    <div class="story-preview">{{ story.preview }}...</div>
+                    <div class="story-meta">
+                        <span class="authors">By: {{ story.authors|join(', ') }}</span>
+                        <span class="date">{{ story.created_date }}</span>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Story Reader Modal -->
+<div id="storyReaderModal" class="modal">
+    <div class="modal-content story-reader">
+        <span class="close" onclick="closeStoryReader()">&times;</span>
+        <div class="reader-header">
+            <h2 id="readerTitle"></h2>
+            <div class="reader-actions">
+                <button class="action-btn" onclick="likeStory()">👍 Like</button>
+                <button class="action-btn" onclick="shareStory()">📤 Share</button>
+                <button class="action-btn" onclick="printStory()">🖨️ Print</button>
+            </div>
+        </div>
+        <div class="reader-content" id="readerContent"></div>
+    </div>
+</div>
+
+<!-- Character Creator Modal -->
+<div id="characterModal" class="modal">
+    <div class="modal-content">
+        <span class="close" onclick="closeCharacterModal()">&times;</span>
+        <h3>✨ Create a New Character</h3>
+        <div class="character-creator">
+            <div class="character-options">
+                <div class="option-group">
+                    <label>Name:</label>
+                    <input type="text" id="characterName" placeholder="Character's name" maxlength="20">
+                </div>
+                <div class="option-group">
+                    <label>Type:</label>
+                    <select id="characterType">
+                        <option value="human">👨 Human</option>
+                        <option value="animal">🐾 Animal</option>
+                        <option value="magical">🧚 Magical Being</option>
+                        <option value="robot">🤖 Robot</option>
+                        <option value="alien">👽 Alien</option>
+                    </select>
+                </div>
+                <div class="option-group">
+                    <label>Personality:</label>
+                    <select id="characterPersonality">
+                        <option value="brave">😤 Brave</option>
+                        <option value="kind">😊 Kind</option>
+                        <option value="funny">😄 Funny</option>
+                        <option value="smart">🤓 Smart</option>
+                        <option value="mysterious">🕵️ Mysterious</option>
+                    </select>
+                </div>
+                <div class="option-group">
+                    <label>Special Power:</label>
+                    <input type="text" id="characterPower" placeholder="What makes them special?" maxlength="30">
+                </div>
+            </div>
+            <button class="create-btn" onclick="createCharacter()">✨ Add to Story</button>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+<script>
+// Socket.IO connection for real-time collaboration
+const socket = io();
+let currentStoryId = null;
+let currentMode = 'collaborative';
+let storyElements = {
+    characters: [],
+    locations: ['Magical land'],
+    items: []
+};
+
+// Join story room
+socket.emit('join_story', {
+    user_id: {{ current_user.id }},
+    username: "{{ current_user.username }}",
+    avatar: "{{ current_user.avatar_emoji }}"
+});
+
+// Listen for real-time updates
+socket.on('story_updated', function(data) {
+    if (data.story_id === currentStoryId) {
+        addParagraphToDisplay(data.paragraph, data.author);
+        updateParticipants(data.participants);
+    }
+});
+
+socket.on('participant_joined', function(data) {
+    updateParticipants(data.participants);
+    showNotification(`${data.username} joined the story! 👋`);
+});
+
+socket.on('ai_suggestion', function(data) {
+    displayAISuggestion(data.suggestion);
+});
+
+// Story mode selection
+function selectMode(mode) {
+    currentMode = mode;
+    document.querySelectorAll('.mode-btn').forEach(btn => btn.classList.remove('active'));
+    document.querySelector(`[data-mode="${mode}"]`).classList.add('active');
+    
+    if (mode === 'guided') {
+        getAISuggestion();
+    }
+}
+
+// Theme change
+function changeTheme() {
+    const theme = document.getElementById('themeSelector').value;
+    const starters = {
+        adventure: "In a distant land filled with hidden treasures and dangerous quests...",
+        fantasy: "In a magical realm where dragons soar and wizards cast spells...",
+        mystery: "On a dark and stormy night, something strange was happening...",
+        friendship: "Two unlikely friends were about to embark on the journey of a lifetime...",
+        space: "Among the twinkling stars in the vast cosmos, a brave explorer discovered...",
+        underwater: "Deep beneath the ocean waves, in a world of colorful coral and sea creatures...",
+        jungle: "In the heart of the dense, mysterious jungle where exotic animals roam...",
+        magical: "In a world where anything is possible and magic flows like rivers..."
+    };
+    
+    document.getElementById('starterText').textContent = starters[theme];
+    updateStoryBackground(theme);
+}
+
+// Add paragraph to story
+async function addToParagraph() {
+    const input = document.getElementById('storyInput');
+    const text = input.value.trim();
+    
+    if (!text) {
+        showNotification('Please write something before adding to the story! ✍️');
+        return;
+    }
+    
+    if (text.length < 10) {
+        showNotification('Please write at least 10 characters to make the story interesting! 📝');
+        return;
+    }
+    
+    const paragraph = {
+        text: text,
+        author: "{{ current_user.username }}",
+        timestamp: new Date().toISOString()
+    };
+    
+    // Add to display
+    addParagraphToDisplay(paragraph, "{{ current_user.username }}");
+    
+    // Send to server and other participants
+    if (currentMode === 'collaborative') {
+        socket.emit('add_paragraph', {
+            story_id: currentStoryId,
+            paragraph: paragraph
+        });
+    }
+    
+    // Clear input
+    input.value = '';
+    updateCharCount();
+    
+    // Award points
+    awardStoryPoints(text.length);
+    
+    // Auto-extract story elements
+    extractStoryElements(text);
+    
+    showNotification('Great addition to the story! ⭐ +' + Math.floor(text.length / 10) + ' story points!');
+}
+
+function addParagraphToDisplay(paragraph, author) {
+    const storyContent = document.getElementById('storyContent');
+    const paragraphDiv = document.createElement('div');
+    paragraphDiv.className = 'story-paragraph';
+    paragraphDiv.innerHTML = `
+        <div class="paragraph-author">${author}</div>
+        <div class="paragraph-text">${paragraph.text}</div>
+        <div class="paragraph-time">${formatTime(new Date())}</div>
+    `;
+    storyContent.appendChild(paragraphDiv);
+    
+    // Scroll to bottom
+    storyContent.scrollTop = storyContent.scrollHeight;
+    
+    // Animate new paragraph
+    paragraphDiv.classList.add('fade-in');
+}
+
+// Get AI suggestion
+async function getAISuggestion() {
+    showNotification('Getting creative ideas... 🤖✨');
+    
+    const response = await fetch('/storytelling/ai-suggestion', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            story_content: getStoryContent(),
+            theme: document.getElementById('themeSelector').value,
+            elements: storyElements
+        })
+    });
+    
+    const result = await response.json();
+    if (result.success) {
+        displayAISuggestion(result.suggestion);
+    }
+}
+
+function displayAISuggestion(suggestion) {
+    const suggestionDiv = document.createElement('div');
+    suggestionDiv.className = 'ai-suggestion';
+    suggestionDiv.innerHTML = `
+        <div class="suggestion-header">💡 AI Story Idea</div>
+        <div class="suggestion-text">${suggestion}</div>
+        <div class="suggestion-actions">
+            <button onclick="useSuggestion('${suggestion}')">Use This Idea</button>
+            <button onclick="getAISuggestion()">Get Another Idea</button>
+            <button onclick="dismissSuggestion()">No Thanks</button>
+        </div>
+    `;
+    
+    // Remove existing suggestions
+    const existing = document.querySelector('.ai-suggestion');
+    if (existing) existing.remove();
+    
+    document.querySelector('.story-input-area').appendChild(suggestionDiv);
+}
+
+function useSuggestion(suggestion) {
+    document.getElementById('storyInput').value = suggestion;
+    updateCharCount();
+    dismissSuggestion();
+}
+
+function dismissSuggestion() {
+    const suggestion = document.querySelector('.ai-suggestion');
+    if (suggestion) suggestion.remove();
+}
+
+// Story tools
+function addCharacter() {
+    document.getElementById('characterModal').style.display = 'block';
+}
+
+function createCharacter() {
+    const name = document.getElementById('characterName').value;
+    const type = document.getElementById('characterType').value;
+    const personality = document.getElementById('characterPersonality').value;
+    const power = document.getElementById('characterPower').value;
+    
+    if (!name) {
+        showNotification('Please give your character a name! 👤');
+        return;
+    }
+    
+    const character = {
+        name: name,
+        type: type,
+        personality: personality,
+        power: power
+    };
+    
+    storyElements.characters.push(character);
+    updateStoryElements();
+    
+    const characterText = `${name} (a ${personality} ${type}${power ? ' with the power of ' + power : ''}) appears in the story!`;
+    document.getElementById('storyInput').value = characterText;
+    updateCharCount();
+    
+    closeCharacterModal();
+    showNotification(`${name} has been added to your story! ✨`);
+}
+
+function addLocation() {
+    const locations = [
+        'a mysterious castle', 'a hidden cave', 'a floating island', 'an underwater city',
+        'a magical forest', 'a crystal palace', 'a cloud kingdom', 'a desert oasis',
+        'a volcano lair', 'a space station', 'a tree house', 'an ice palace'
+    ];
+    
+    const location = locations[Math.floor(Math.random() * locations.length)];
+    storyElements.locations.push(location);
+    updateStoryElements();
+    
+    const locationText = `The adventure continues in ${location}...`;
+    document.getElementById('storyInput').value = locationText;
+    updateCharCount();
+    
+    showNotification(`New location added: ${location}! 🏰`);
+}
+
+function addTwist() {
+    const twists = [
+        'Suddenly, everything changed when',
+        'But then, a shocking secret was revealed:',
+        'Little did they know that',
+        'In an unexpected turn of events,',
+        'The truth finally came out:',
+        'Against all odds,',
+        'To everyone\'s surprise,'
+    ];
+    
+    const twist = twists[Math.floor(Math.random() * twists.length)];
+    document.getElementById('storyInput').value = twist + ' ';
+    updateCharCount();
+    
+    showNotification('Plot twist added! This will make the story exciting! 🌪️');
+}
+
+function addDialogue() {
+    const dialogueStarters = [
+        '"I have something important to tell you," said',
+        '"This is impossible!" exclaimed',
+        '"Wait, did you hear that?" whispered',
+        '"I know exactly what we need to do," announced',
+        '"Something doesn\'t feel right here," muttered',
+        '"Look over there!" shouted'
+    ];
+    
+    const dialogue = dialogueStarters[Math.floor(Math.random() * dialogueStarters.length)];
+    document.getElementById('storyInput').value = dialogue + ' ';
+    updateCharCount();
+    
+    showNotification('Dialogue starter added! Make your characters talk! 💬');
+}
+
+// Utility functions
+function updateCharCount() {
+    const input = document.getElementById('storyInput');
+    const count = input.value.length;
+    document.getElementById('charCount').textContent = count;
+    
+    if (count > 180) {
+        document.getElementById('charCount').style.color = '#ff6b6b';
+    } else if (count > 150) {
+        document.getElementById('charCount').style.color = '#ffa500';
+    } else {
+        document.getElementById('charCount').style.color = '#4ecdc4';
+    }
+}
+
+function extractStoryElements(text) {
+    // Simple extraction logic
+    const words = text.toLowerCase().split(' ');
+    
+    // Look for character names (capitalized words)
+    const possibleNames = text.match(/\b[A-Z][a-z]+\b/g);
+    if (possibleNames) {
+        possibleNames.forEach(name => {
+            if (name.length > 2 && !storyElements.characters.some(c => c.name === name)) {
+                storyElements.characters.push({name: name, type: 'character'});
+            }
+        });
+    }
+    
+    // Look for locations
+    const locationWords = ['castle', 'forest', 'mountain', 'river', 'city', 'village', 'island', 'cave'];
+    locationWords.forEach(word => {
+        if (words.includes(word) && !storyElements.locations.includes(word)) {
+            storyElements.locations.push(word);
+        }
+    });
+    
+    updateStoryElements();
+}
+
+function updateStoryElements() {
+    document.getElementById('charactersElement').textContent = 
+        storyElements.characters.length > 0 ? 
+        storyElements.characters.map(c => c.name).join(', ') : 
+        'None yet';
+    
+    document.getElementById('locationsElement').textContent = 
+        storyElements.locations.join(', ');
+    
+    document.getElementById('itemsElement').textContent = 
+        storyElements.items.length > 0 ? 
+        storyElements.items.join(', ') : 
+        'None yet';
+}
+
+function updateParticipants(participants) {
+    const list = document.getElementById('participantsList');
+    list.innerHTML = participants.map(p => `
+        <div class="participant ${p.active ? 'active' : ''}">
+            <div class="participant-avatar">${p.avatar}</div>
+            <div class="participant-name">${p.username}</div>
+            <div class="participant-status">${p.status}</div>
+        </div>
+    `).join('');
+}
+
+function getStoryContent() {
+    const paragraphs = document.querySelectorAll('.paragraph-text');
+    return Array.from(paragraphs).map(p => p.textContent).join(' ');
+}
+
+function awardStoryPoints(textLength) {
+    const points = Math.floor(textLength / 10);
+    // Update user points via API call
+    fetch('/storytelling/award-points', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({points: points})
+    });
+}
+
+function updateStoryBackground(theme) {
+    const container = document.querySelector('.storytelling-container');
+    container.className = `storytelling-container theme-${theme}`;
+}
+
+function formatTime(date) {
+    return date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+}
+
+function showNotification(message) {
+    const notification = document.createElement('div');
+    notification.className = 'notification';
+    notification.textContent = message;
+    document.body.appendChild(notification);
+    
+    setTimeout(() => {
+        notification.classList.add('show');
+    }, 100);
+    
+    setTimeout(() => {
+        notification.classList.remove('show');
+        setTimeout(() => notification.remove(), 300);
+    }, 3000);
+}
+
+// Modal functions
+function closeCharacterModal() {
+    document.getElementById('characterModal').style.display = 'none';
+}
+
+function readStory(storyId) {
+    // Implement story reader
+    document.getElementById('storyReaderModal').style.display = 'block';
+    // Load story content
+}
+
+function closeStoryReader() {
+    document.getElementById('storyReaderModal').style.display = 'none';
+}
+
+// Event listeners
+document.getElementById('storyInput').addEventListener('input', updateCharCount);
+document.getElementById('titleInput').addEventListener('input', function() {
+    if (this.value.length > 0) {
+        document.getElementById('storyTitle').classList.add('has-title');
+    } else {
+        document.getElementById('storyTitle').classList.remove('has-title');
+    }
+});
+
+// Initialize
+document.addEventListener('DOMContentLoaded', function() {
+    updateCharCount();
+    changeTheme(); // Set initial theme
+    
+    // Generate a new story ID
+    currentStoryId = 'story_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+    
+    // Add magical particles
+    createMagicalParticles();
+});
+
+function createMagicalParticles() {
+    const container = document.querySelector('.storytelling-container');
+    for (let i = 0; i < 15; i++) {
+        const particle = document.createElement('div');
+        particle.className = 'magic-particle';
+        particle.style.left = Math.random() * 100 + '%';
+        particle.style.animationDelay = Math.random() * 3 + 's';
+        particle.style.animationDuration = (Math.random() * 4 + 3) + 's';
+        particle.textContent = ['✨', '⭐', '💫', '🌟', '✨', '💝'][Math.floor(Math.random() * 6)];
+        container.appendChild(particle);
+    }
+}
+</script>
+{% endblock %}

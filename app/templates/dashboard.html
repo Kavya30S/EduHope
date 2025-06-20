@@ -1,188 +1,612 @@
-from flask import Blueprint, render_template, redirect, url_for, jsonify
-from flask_login import login_required, current_user
-from app.models.user import User
-from app.models.pet import Pet
-from app.models.lesson import Lesson
-from app.models.achievement import Achievement
-from app.models.user_achievement import UserAchievement
-from app.models.story import Story
-from app import db
-from sqlalchemy import func, desc
-from datetime import datetime, timedelta
-
-dashboard = Blueprint('dashboard', __name__)
-
-@dashboard.route('/')
-@login_required
-def index():
-    # Get user's pet
-    user_pet = Pet.query.filter_by(user_id=current_user.id).first()
-    
-    # Get recent lessons completed
-    recent_lessons = db.session.query(Lesson).join(
-        User, Lesson.completed_by.contains(current_user)
-    ).order_by(desc(Lesson.created_at)).limit(3).all() if hasattr(Lesson, 'completed_by') else []
-    
-    # Get user achievements
-    user_achievements = db.session.query(Achievement).join(
-        UserAchievement, Achievement.id == UserAchievement.achievement_id
-    ).filter(UserAchievement.user_id == current_user.id).order_by(
-        desc(UserAchievement.earned_at)
-    ).limit(5).all()
-    
-    # Get user's recent stories
-    user_stories = Story.query.filter_by(author_id=current_user.id).order_by(
-        desc(Story.created_at)
-    ).limit(3).all()
-    
-    # Calculate streak (simplified - would need lesson completion tracking)
-    learning_streak = calculate_learning_streak(current_user.id)
-    
-    # Get leaderboard position
-    leaderboard_position = get_user_leaderboard_position(current_user.id)
-    
-    # Weekly stats
-    week_ago = datetime.utcnow() - timedelta(days=7)
-    weekly_stats = {
-        'lessons_completed': 0,  # Would need proper tracking
-        'stories_created': Story.query.filter(
-            Story.author_id == current_user.id,
-            Story.created_at >= week_ago
-        ).count(),
-        'points_earned': 0,  # Would need point history tracking
-        'pet_interactions': 0  # Would need interaction tracking
-    }
-    
-    return render_template('dashboard/index.html',
-                         user_pet=user_pet,
-                         recent_lessons=recent_lessons,
-                         user_achievements=user_achievements,
-                         user_stories=user_stories,
-                         learning_streak=learning_streak,
-                         leaderboard_position=leaderboard_position,
-                         weekly_stats=weekly_stats)
-
-@dashboard.route('/leaderboard')
-@login_required
-def leaderboard():
-    # Get top users by points
-    top_users = User.query.order_by(desc(User.total_points)).limit(50).all()
-    
-    # Get user's position
-    user_position = get_user_leaderboard_position(current_user.id)
-    
-    return render_template('dashboard/leaderboard.html',
-                         top_users=top_users,
-                         user_position=user_position,
-                         current_user_id=current_user.id)
-
-@dashboard.route('/achievements')
-@login_required
-def achievements():
-    # Get all achievements with user's completion status
-    all_achievements = Achievement.query.all()
-    user_achievement_ids = {ua.achievement_id for ua in 
-                           UserAchievement.query.filter_by(user_id=current_user.id).all()}
-    
-    completed_achievements = []
-    pending_achievements = []
-    
-    for achievement in all_achievements:
-        if achievement.id in user_achievement_ids:
-            # Get the earning date
-            user_ach = UserAchievement.query.filter_by(
-                user_id=current_user.id, 
-                achievement_id=achievement.id
-            ).first()
-            achievement.earned_at = user_ach.earned_at
-            completed_achievements.append(achievement)
-        else:
-            pending_achievements.append(achievement)
-    
-    return render_template('dashboard/achievements.html',
-                         completed_achievements=completed_achievements,
-                         pending_achievements=pending_achievements)
-
-@dashboard.route('/stats')
-@login_required
-def stats():
-    # Comprehensive user statistics
-    stats = {
-        'total_points': current_user.total_points,
-        'level': current_user.level,
-        'achievements_count': UserAchievement.query.filter_by(user_id=current_user.id).count(),
-        'stories_created': Story.query.filter_by(author_id=current_user.id).count(),
-        'learning_streak': calculate_learning_streak(current_user.id),
-        'account_age': (datetime.utcnow() - current_user.created_at).days,
-        'pet_stats': None
-    }
-    
-    # Get pet stats
-    user_pet = Pet.query.filter_by(user_id=current_user.id).first()
-    if user_pet:
-        stats['pet_stats'] = {
-            'name': user_pet.name,
-            'type': user_pet.pet_type,
-            'level': user_pet.level,
-            'happiness': user_pet.happiness,
-            'health': user_pet.health,
-            'experience': user_pet.experience
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ current_user.username }}'s Magic Kingdom - EduHope</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+        .dashboard-container {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            position: relative;
+            overflow-x: hidden;
         }
-    
-    return render_template('dashboard/stats.html', stats=stats)
-
-@dashboard.route('/api/quick_stats')
-@login_required
-def api_quick_stats():
-    """API endpoint for quick stats updates"""
-    user_pet = Pet.query.filter_by(user_id=current_user.id).first()
-    
-    return jsonify({
-        'points': current_user.total_points,
-        'level': current_user.level,
-        'pet': {
-            'happiness': user_pet.happiness if user_pet else 0,
-            'hunger': user_pet.hunger if user_pet else 0,
-            'health': user_pet.health if user_pet else 0,
-            'energy': user_pet.energy if user_pet else 0,
-            'needs_attention': (user_pet.hunger < 30 or user_pet.happiness < 40) if user_pet else False
-        } if user_pet else None
-    })
-
-def calculate_learning_streak(user_id):
-    """Calculate the user's current learning streak"""
-    # This is a simplified version - in production, you'd track daily lesson completions
-    # For now, return a mock streak based on recent activity
-    recent_activity = Story.query.filter_by(author_id=user_id).filter(
-        Story.created_at >= datetime.utcnow() - timedelta(days=7)
-    ).count()
-    
-    return min(recent_activity, 7)  # Cap at 7 days
-
-def get_user_leaderboard_position(user_id):
-    """Get user's position in the leaderboard"""
-    user = User.query.get(user_id)
-    if not user:
-        return None
         
-    # Count users with higher points
-    higher_users = User.query.filter(User.total_points > user.total_points).count()
-    return higher_users + 1
-
-@dashboard.route('/tutorial')
-@login_required
-def tutorial():
-    """Interactive tutorial for new users"""
-    return render_template('dashboard/tutorial.html')
-
-@dashboard.route('/settings')
-@login_required
-def settings():
-    """User settings page"""
-    return render_template('dashboard/settings.html')
-
-@dashboard.route('/help')
-@login_required
-def help():
-    """Help and FAQ page"""
-    return render_template('dashboard/help.html')
+        .dashboard-header {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 25px;
+            padding: 30px;
+            margin-bottom: 30px;
+            text-align: center;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+            position: relative;
+        }
+        
+        .user-avatar {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            border: 4px solid #4ecdc4;
+            margin: 0 auto 15px;
+            display: block;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(78, 205, 196, 0.7); }
+            70% { box-shadow: 0 0 0 10px rgba(78, 205, 196, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(78, 205, 196, 0); }
+        }
+        
+        .welcome-message {
+            font-size: 28px;
+            color: #333;
+            margin-bottom: 10px;
+            font-weight: bold;
+        }
+        
+        .pet-status {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 20px;
+            margin: 20px 0;
+            background: rgba(240, 248, 255, 0.8);
+            padding: 15px;
+            border-radius: 15px;
+        }
+        
+        .pet-avatar {
+            font-size: 50px;
+            animation: bounce 2s infinite;
+        }
+        
+        .pet-info {
+            text-align: left;
+        }
+        
+        .pet-stats {
+            display: flex;
+            gap: 15px;
+            margin-top: 10px;
+        }
+        
+        .stat-bar {
+            background: #e0e0e0;
+            border-radius: 10px;
+            height: 8px;
+            width: 100px;
+            overflow: hidden;
+            position: relative;
+        }
+        
+        .stat-fill {
+            height: 100%;
+            border-radius: 10px;
+            transition: width 0.3s ease;
+        }
+        
+        .happiness { background: linear-gradient(90deg, #ff6b9d, #c44569); }
+        .energy { background: linear-gradient(90deg, #4ecdc4, #44a08d); }
+        .hunger { background: linear-gradient(90deg, #ffa726, #ef6c00); }
+        
+        .progress-section {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 25px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+        }
+        
+        .progress-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+        
+        .progress-card {
+            background: linear-gradient(145deg, #ffffff, #f0f8ff);
+            border-radius: 15px;
+            padding: 20px;
+            text-align: center;
+            transition: transform 0.3s ease;
+            border: 2px solid transparent;
+        }
+        
+        .progress-card:hover {
+            transform: translateY(-5px);
+            border-color: #4ecdc4;
+            box-shadow: 0 10px 25px rgba(78, 205, 196, 0.3);
+        }
+        
+        .progress-icon {
+            font-size: 40px;
+            margin-bottom: 10px;
+            display: block;
+        }
+        
+        .activity-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 25px;
+            margin-top: 30px;
+        }
+        
+        .activity-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 30px;
+            text-align: center;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+            border: 3px solid transparent;
+        }
+        
+        .activity-card:hover {
+            transform: translateY(-10px) scale(1.02);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+            border-color: #ff6b9d;
+        }
+        
+        .activity-card::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255, 255, 255, 0.3) 0%, transparent 70%);
+            transform: scale(0);
+            transition: transform 0.5s ease;
+        }
+        
+        .activity-card:hover::before {
+            transform: scale(1);
+        }
+        
+        .activity-icon {
+            font-size: 60px;
+            margin-bottom: 15px;
+            display: block;
+            position: relative;
+            z-index: 2;
+        }
+        
+        .activity-title {
+            font-size: 22px;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 10px;
+            position: relative;
+            z-index: 2;
+        }
+        
+        .activity-description {
+            color: #666;
+            font-size: 14px;
+            position: relative;
+            z-index: 2;
+        }
+        
+        .achievement-banner {
+            background: linear-gradient(135deg, #ffd700, #ffb347);
+            border-radius: 15px;
+            padding: 20px;
+            margin: 20px 0;
+            text-align: center;
+            color: #8b4513;
+            font-weight: bold;
+            display: none;
+        }
+        
+        .achievement-banner.show {
+            display: block;
+            animation: slideInFromTop 0.8s ease;
+        }
+        
+        @keyframes slideInFromTop {
+            from { transform: translateY(-100px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        
+        .floating-sparkles {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            overflow: hidden;
+        }
+        
+        .sparkle {
+            position: absolute;
+            font-size: 20px;
+            animation: sparkleFloat 4s linear infinite;
+        }
+        
+        @keyframes sparkleFloat {
+            0% { transform: translateY(100vh) rotate(0deg); opacity: 1; }
+            100% { transform: translateY(-100px) rotate(360deg); opacity: 0; }
+        }
+        
+        .mood-tracker {
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 15px;
+            padding: 20px;
+            margin: 20px 0;
+            text-align: center;
+        }
+        
+        .mood-options {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-top: 15px;
+        }
+        
+        .mood-option {
+            font-size: 40px;
+            cursor: pointer;
+            transition: transform 0.3s ease;
+            padding: 10px;
+            border-radius: 50%;
+        }
+        
+        .mood-option:hover {
+            transform: scale(1.2);
+            background: rgba(78, 205, 196, 0.2);
+        }
+        
+        .quick-actions {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            z-index: 1000;
+        }
+        
+        .quick-action-btn {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            border: none;
+            color: white;
+            font-size: 24px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        }
+        
+        .pet-btn { background: linear-gradient(135deg, #ff6b9d, #c44569); }
+        .help-btn { background: linear-gradient(135deg, #4ecdc4, #44a08d); }
+        .settings-btn { background: linear-gradient(135deg, #ffa726, #ef6c00); }
+        
+        .quick-action-btn:hover {
+            transform: scale(1.1);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+        }
+        
+        @media (max-width: 768px) {
+            .activity-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .progress-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            
+            .pet-status {
+                flex-direction: column;
+                text-align: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard-container">
+        <div class="floating-sparkles" id="sparkles"></div>
+        
+        <div class="dashboard-header">
+            <img src="https://api.dicebear.com/7.x/avataaars/svg?seed={{ current_user.username }}" 
+                 alt="Avatar" class="user-avatar">
+            <h1 class="welcome-message">🌟 Welcome back, {{ current_user.username }}! 🌟</h1>
+            <p style="color: #666;">Ready for another magical learning adventure?</p>
+            
+            <div class="pet-status">
+                <span class="pet-avatar" id="petAvatar">{{ pet_emoji }}</span>
+                <div class="pet-info">
+                    <h3 style="color: #333; margin: 0;">{{ pet_name }}</h3>
+                    <p style="color: #666; margin: 5px 0;">Level {{ pet_level }} • {{ pet_type.title() }}</p>
+                    <div class="pet-stats">
+                        <div>
+                            <small>Happiness</small>
+                            <div class="stat-bar">
+                                <div class="stat-fill happiness" style="width: {{ pet_happiness }}%"></div>
+                            </div>
+                        </div>
+                        <div>
+                            <small>Energy</small>
+                            <div class="stat-bar">
+                                <div class="stat-fill energy" style="width: {{ pet_energy }}%"></div>
+                            </div>
+                        </div>
+                        <div>
+                            <small>Hunger</small>
+                            <div class="stat-bar">
+                                <div class="stat-fill hunger" style="width: {{ pet_hunger }}%"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="achievement-banner" id="achievementBanner">
+            🏆 Congratulations! You've unlocked a new achievement! 🏆
+        </div>
+        
+        <div class="progress-section">
+            <h2 style="text-align: center; color: #333; margin-bottom: 10px;">📊 Your Learning Journey</h2>
+            <div class="progress-grid">
+                <div class="progress-card">
+                    <span class="progress-icon">📚</span>
+                    <h3>Lessons Completed</h3>
+                    <div style="font-size: 24px; font-weight: bold; color: #4ecdc4;">{{ lessons_completed }}</div>
+                    <small>Out of {{ total_lessons }} available</small>
+                </div>
+                <div class="progress-card">
+                    <span class="progress-icon">🏆</span>
+                    <h3>Achievements</h3>
+                    <div style="font-size: 24px; font-weight: bold; color: #ff6b9d;">{{ achievements_count }}</div>
+                    <small>Badges earned</small>
+                </div>
+                <div class="progress-card">
+                    <span class="progress-icon">⭐</span>
+                    <h3>Stars Collected</h3>
+                    <div style="font-size: 24px; font-weight: bold; color: #ffa726;">{{ stars_collected }}</div>
+                    <small>Keep shining!</small>
+                </div>
+                <div class="progress-card">
+                    <span class="progress-icon">🔥</span>
+                    <h3>Learning Streak</h3>
+                    <div style="font-size: 24px; font-weight: bold; color: #e74c3c;">{{ learning_streak }}</div>
+                    <small>Days in a row</small>
+                </div>
+            </div>
+        </div>
+        
+        <div class="mood-tracker">
+            <h3 style="color: #333; margin-bottom: 10px;">How are you feeling today? 😊</h3>
+            <p style="color: #666; font-size: 14px;">Your feelings help us create better experiences for you!</p>
+            <div class="mood-options">
+                <span class="mood-option" onclick="setMood('happy')" title="Happy">😊</span>
+                <span class="mood-option" onclick="setMood('excited')" title="Excited">🤩</span>
+                <span class="mood-option" onclick="setMood('calm')" title="Calm">😌</span>
+                <span class="mood-option" onclick="setMood('curious')" title="Curious">🤔</span>
+                <span class="mood-option" onclick="setMood('tired')" title="Tired">😴</span>
+                <span class="mood-option" onclick="setMood('sad')" title="Sad">😢</span>
+            </div>
+        </div>
+        
+        <div class="activity-grid">
+            <div class="activity-card" onclick="location.href='{{ url_for('education.lessons') }}'">
+                <span class="activity-icon">📖</span>
+                <h3 class="activity-title">Magic Lessons</h3>
+                <p class="activity-description">Discover new knowledge through interactive lessons tailored just for you!</p>
+            </div>
+            
+            <div class="activity-card" onclick="location.href='{{ url_for('pet_companion.pet_home') }}'">
+                <span class="activity-icon">🐾</span>
+                <h3 class="activity-title">Pet Companion</h3>
+                <p class="activity-description">Take care of your magical friend! Feed, play, and watch them grow!</p>
+            </div>
+            
+            <div class="activity-card" onclick="location.href='{{ url_for('language_games.games') }}'">
+                <span class="activity-icon">🗣️</span>
+                <h3 class="activity-title">Language Adventures</h3>
+                <p class="activity-description">Learn new languages through fun games and voice challenges!</p>
+            </div>
+            
+            <div class="activity-card" onclick="location.href='{{ url_for('storytelling.stories') }}'">
+                <span class="activity-icon">📝</span>
+                <h3 class="activity-title">Story Magic</h3>
+                <p class="activity-description">Create amazing stories with friends from around the world!</p>
+            </div>
+            
+            <div class="activity-card" onclick="location.href='{{ url_for('education.math_games') }}'">
+                <span class="activity-icon">🔢</span>
+                <h3 class="activity-title">Number Quest</h3>
+                <p class="activity-description">Explore the magical world of mathematics through exciting puzzles!</p>
+            </div>
+            
+            <div class="activity-card" onclick="location.href='{{ url_for('education.science_lab') }}'">
+                <span class="activity-icon">🔬</span>
+                <h3 class="activity-title">Science Lab</h3>
+                <p class="activity-description">Conduct virtual experiments and discover how the world works!</p>
+            </div>
+            
+            <div class="activity-card" onclick="location.href='{{ url_for('social.friends') }}'">
+                <span class="activity-icon">👥</span>
+                <h3 class="activity-title">Friend Zone</h3>
+                <p class="activity-description">Connect with other young learners in a safe, moderated environment!</p>
+            </div>
+            
+            <div class="activity-card" onclick="location.href='{{ url_for('support.emotional_support') }}'">
+                <span class="activity-icon">💙</span>
+                <h3 class="activity-title">Feelings Helper</h3>
+                <p class="activity-description">Talk to our AI friend about your feelings and get helpful advice!</p>
+            </div>
+        </div>
+        
+        <div class="quick-actions">
+            <button class="quick-action-btn pet-btn" onclick="quickPetCare()" title="Quick Pet Care">🐾</button>
+            <button class="quick-action-btn help-btn" onclick="getHelp()" title="Need Help?">❓</button>
+            <button class="quick-action-btn settings-btn" onclick="openSettings()" title="Settings">⚙️</button>
+        </div>
+    </div>
+    
+    <script>
+        // Create floating sparkles
+        function createSparkle() {
+            const sparkles = document.getElementById('sparkles');
+            const sparkle = document.createElement('div');
+            sparkle.className = 'sparkle';
+            sparkle.innerHTML = ['✨', '⭐', '💫', '🌟'][Math.floor(Math.random() * 4)];
+            sparkle.style.left = Math.random() * 100 + '%';
+            sparkle.style.animationDuration = (3 + Math.random() * 3) + 's';
+            sparkles.appendChild(sparkle);
+            
+            setTimeout(() => {
+                sparkle.remove();
+            }, 6000);
+        }
+        
+        // Create sparkles periodically
+        setInterval(createSparkle, 2000);
+        
+        // Mood tracking
+        function setMood(mood) {
+            fetch('/support/set_mood', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({mood: mood})
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showNotification('Thanks for sharing how you feel! 💖');
+                    updatePetMood(mood);
+                }
+            });
+        }
+        
+        function updatePetMood(mood) {
+            const petAvatar = document.getElementById('petAvatar');
+            if (mood === 'happy' || mood === 'excited') {
+                petAvatar.style.animation = 'bounce 1s ease-in-out 3';
+            } else if (mood === 'sad' || mood === 'tired') {
+                // Pet shows empathy
+                petAvatar.style.filter = 'hue-rotate(180deg)';
+                setTimeout(() => {
+                    petAvatar.style.filter = 'none';
+                }, 3000);
+            }
+        }
+        
+        // Quick actions
+        function quickPetCare() {
+            fetch('/pet/quick_care', {method: 'POST'})
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showNotification('Your pet feels loved! 🐾💖');
+                    updatePetStats(data.pet_stats);
+                }
+            });
+        }
+        
+        function getHelp() {
+            const helpMessages = [
+                "Click on any activity to start learning! 📚",
+                "Don't forget to take care of your pet friend! 🐾",
+                "Try setting your mood - it helps us understand you better! 😊",
+                "Complete lessons to earn stars and unlock new features! ⭐",
+                "Need someone to talk to? Visit the Feelings Helper! 💙"
+            ];
+            
+            const randomMessage = helpMessages[Math.floor(Math.random() * helpMessages.length)];
+            showNotification(randomMessage);
+        }
+        
+        function openSettings() {
+            // Placeholder for settings
+            showNotification('Settings coming soon! Meanwhile, enjoy your learning adventure! ⚙️✨');
+        }
+        
+        function showNotification(message) {
+            const notification = document.createElement('div');
+            notification.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                background: linear-gradient(135deg, #4ecdc4, #44a08d);
+                color: white;
+                padding: 15px 20px;
+                border-radius: 10px;
+                box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+                z-index: 2000;
+                animation: slideInFromRight 0.5s ease;
+                max-width: 300px;
+                font-weight: bold;
+            `;
+            notification.textContent = message;
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.style.animation = 'slideOutToRight 0.5s ease';
+                setTimeout(() => notification.remove(), 500);
+            }, 4000);
+        }
+        
+        function updatePetStats(stats) {
+            document.querySelector('.happiness .stat-fill').style.width = stats.happiness + '%';
+            document.querySelector('.energy .stat-fill').style.width = stats.energy + '%';
+            document.querySelector('.hunger .stat-fill').style.width = stats.hunger + '%';
+        }
+        
+        // Check for achievements
+        function checkAchievements() {
+            fetch('/education/check_achievements')
+            .then(response => response.json())
+            .then(data => {
+                if (data.new_achievement) {
+                    document.getElementById('achievementBanner').classList.add('show');
+                    setTimeout(() => {
+                        document.getElementById('achievementBanner').classList.remove('show');
+                    }, 5000);
+                }
+            });
+        }
+        
+        // Animate stat bars on load
+        window.addEventListener('load', function() {
+            const statFills = document.querySelectorAll('.stat-fill');
+            statFills.forEach(fill => {
+                const width = fill.style.width;
+                fill.style.width = '0%';
+                setTimeout(() => {
+                    fill.style.width = width;
+                }, 500);
+            });
+            
+            checkAchievements();
+        });
+        
+        // Add CSS animations
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes slideInFromRight {
+                from { transform: translateX(100%); opacity: 0; }
+                to { transform: translateX(0); opacity: 1; }
+            }
+            
+            @keyframes slideOutToRight {
+                from { transform: translateX(0); opacity: 1; }
+                to { transform: translateX(100%); opacity: 0; }
+            }
+        `;
+        document.head.appendChild(style);
+    </script>
+</body>
+</html>

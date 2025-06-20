@@ -1,14 +1,872 @@
-{% extends "base.html" %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🌈 Magic Chat Kingdom - EduHope</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka+One:wght@400&family=Nunito:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+</head>
+<body class="chat-page">
+    <div class="magical-background">
+        <div class="floating-clouds"></div>
+        <div class="twinkling-stars"></div>
+    </div>
 
-{% block title %}Chat{% endblock %}
+    <nav class="rainbow-nav">
+        <div class="nav-container">
+            <a href="{{ url_for('main.dashboard') }}" class="logo-link">
+                <i class="fas fa-home sparkle-icon"></i> Home
+            </a>
+            <div class="nav-links">
+                <span class="online-friends">
+                    <i class="fas fa-users"></i> <span id="online-count">0</span> friends online
+                </span>
+                <div class="user-gems">
+                    <i class="fas fa-gem"></i> <span id="user-gems">{{ current_user.gems or 0 }}</span>
+                </div>
+            </div>
+        </div>
+    </nav>
 
-{% block content %}
-<h2>Chat</h2>
-<form method="POST" action="{{ url_for('support.analyze_mood') }}">
-    <textarea name="message" placeholder="Type your message..."></textarea>
-    <button type="submit">Send</button>
-</form>
-{% if mood %}
-    <p>Your mood: {{ mood }}</p>
-{% endif %}
-{% endblock %}
+    <main class="chat-container">
+        <div class="chat-header bouncy-entrance">
+            <div class="chat-mascot">
+                <div class="mascot-character animated-character">
+                    <i class="fas fa-dragon rainbow-text"></i>
+                </div>
+                <div class="speech-bubble">
+                    <p id="mascot-speech">"Welcome to our magical chat kingdom! 🏰✨"</p>
+                </div>
+            </div>
+            
+            <div class="chat-info">
+                <h1 class="chat-title rainbow-text">Magic Chat Kingdom</h1>
+                <p class="chat-subtitle">Connect with friends from around the world! 🌍</p>
+            </div>
+        </div>
+
+        <div class="chat-main-area">
+            <div class="chat-sidebar">
+                <div class="friends-list card-3d">
+                    <div class="section-header">
+                        <h3><i class="fas fa-heart"></i> My Friends</h3>
+                        <button class="btn-mini" onclick="findNewFriends()">
+                            <i class="fas fa-user-plus"></i>
+                        </button>
+                    </div>
+                    
+                    <div class="friends-container" id="friends-list">
+                        <div class="friend-item offline">
+                            <div class="friend-avatar">
+                                <img src="{{ url_for('static', filename='images/default-avatar.png') }}" alt="Friend">
+                                <span class="status-indicator offline"></span>
+                            </div>
+                            <div class="friend-info">
+                                <span class="friend-name">Loading friends...</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="chat-rooms card-3d">
+                    <div class="section-header">
+                        <h3><i class="fas fa-door-open"></i> Chat Rooms</h3>
+                        <button class="btn-mini" onclick="createRoom()">
+                            <i class="fas fa-plus"></i>
+                        </button>
+                    </div>
+                    
+                    <div class="rooms-container" id="rooms-list">
+                        <div class="room-item active" data-room="general" onclick="switchRoom('general')">
+                            <div class="room-icon">
+                                <i class="fas fa-comments"></i>
+                            </div>
+                            <div class="room-info">
+                                <span class="room-name">General Chat</span>
+                                <span class="room-count">0 friends</span>
+                            </div>
+                        </div>
+                        
+                        <div class="room-item" data-room="games" onclick="switchRoom('games')">
+                            <div class="room-icon">
+                                <i class="fas fa-gamepad"></i>
+                            </div>
+                            <div class="room-info">
+                                <span class="room-name">Game Zone</span>
+                                <span class="room-count">0 friends</span>
+                            </div>
+                        </div>
+                        
+                        <div class="room-item" data-room="stories" onclick="switchRoom('stories')">
+                            <div class="room-icon">
+                                <i class="fas fa-book"></i>
+                            </div>
+                            <div class="room-info">
+                                <span class="room-name">Story Corner</span>
+                                <span class="room-count">0 friends</span>
+                            </div>
+                        </div>
+                        
+                        <div class="room-item" data-room="help" onclick="switchRoom('help')">
+                            <div class="room-icon">
+                                <i class="fas fa-hands-helping"></i>
+                            </div>
+                            <div class="room-info">
+                                <span class="room-name">Help & Support</span>
+                                <span class="room-count">0 friends</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="pet-social card-3d">
+                    <div class="section-header">
+                        <h3><i class="fas fa-paw"></i> Pet Playground</h3>
+                    </div>
+                    
+                    <div class="pet-social-area">
+                        <div class="my-pet-display">
+                            <div class="pet-avatar-small">
+                                <img src="{{ url_for('static', filename='images/pets/' + (current_user.pet.pet_type if current_user.pet else 'dragon') + '.png') }}" 
+                                     alt="My Pet" id="my-pet-avatar">
+                            </div>
+                            <div class="pet-mood" id="pet-mood">😊</div>
+                        </div>
+                        
+                        <div class="social-pets" id="social-pets">
+                            <!-- Other pets will appear here -->
+                        </div>
+                        
+                        <button class="btn-pet-social" onclick="visitPetPark()">
+                            <i class="fas fa-tree"></i> Visit Pet Park
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="chat-area">
+                <div class="chat-room-header">
+                    <div class="room-title">
+                        <i class="fas fa-comments"></i>
+                        <span id="current-room-name">General Chat</span>
+                    </div>
+                    <div class="room-actions">
+                        <button class="btn-mini" onclick="toggleEmojiPicker()">
+                            <i class="fas fa-smile"></i>
+                        </button>
+                        <button class="btn-mini" onclick="toggleGifPicker()">
+                            <i class="fas fa-images"></i>
+                        </button>
+                        <button class="btn-mini" onclick="startVoiceChat()">
+                            <i class="fas fa-microphone"></i>
+                        </button>
+                        <button class="btn-mini" onclick="shareScreen()">
+                            <i class="fas fa-desktop"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="chat-messages-container" id="chat-messages">
+                    <div class="welcome-message">
+                        <div class="welcome-character">
+                            <i class="fas fa-star"></i>
+                        </div>
+                        <p>Welcome to the Magic Chat Kingdom! 🌟</p>
+                        <p>Be kind, have fun, and make new friends! 💫</p>
+                    </div>
+                </div>
+
+                <div class="chat-input-area">
+                    <div class="input-container">
+                        <div class="message-tools">
+                            <button class="tool-btn" onclick="toggleFormatting()">
+                                <i class="fas fa-bold"></i>
+                            </button>
+                            <button class="tool-btn" onclick="attachFile()">
+                                <i class="fas fa-paperclip"></i>
+                            </button>
+                            <button class="tool-btn" onclick="recordVoice()">
+                                <i class="fas fa-microphone" id="voice-icon"></i>
+                            </button>
+                            <button class="tool-btn" onclick="drawDoodle()">
+                                <i class="fas fa-paint-brush"></i>
+                            </button>
+                        </div>
+                        
+                        <div class="input-wrapper">
+                            <textarea id="message-input" 
+                                    placeholder="Type your magical message... ✨" 
+                                    rows="1"
+                                    maxlength="500"
+                                    onkeypress="handleMessageKeyPress(event)"
+                                    oninput="handleInputChange()"></textarea>
+                            
+                            <div class="input-actions">
+                                <span class="character-count">
+                                    <span id="char-count">0</span>/500
+                                </span>
+                                <button class="send-btn" onclick="sendMessage()" id="send-btn" disabled>
+                                    <i class="fas fa-paper-plane"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- AI Safety Guardian -->
+                    <div class="ai-guardian" id="ai-guardian" style="display: none;">
+                        <div class="guardian-avatar">
+                            <i class="fas fa-shield-alt"></i>
+                        </div>
+                        <div class="guardian-message">
+                            <p id="guardian-text">Let's keep our chat kind and friendly! 💙</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Activity Feed -->
+            <div class="activity-feed card-3d">
+                <div class="section-header">
+                    <h3><i class="fas fa-star"></i> Magic Moments</h3>
+                </div>
+                
+                <div class="activity-list" id="activity-feed">
+                    <div class="activity-item">
+                        <div class="activity-icon">
+                            <i class="fas fa-trophy"></i>
+                        </div>
+                        <div class="activity-text">
+                            <p><strong>Emma</strong> earned the "Friendship Star" badge! 🌟</p>
+                            <span class="activity-time">2 minutes ago</span>
+                        </div>
+                    </div>
+                    
+                    <div class="activity-item">
+                        <div class="activity-icon">
+                            <i class="fas fa-heart"></i>
+                        </div>
+                        <div class="activity-text">
+                            <p><strong>Alex</strong> and their pet completed a lesson together! 📚</p>
+                            <span class="activity-time">5 minutes ago</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="daily-challenges">
+                    <h4><i class="fas fa-calendar-star"></i> Today's Challenges</h4>
+                    <div class="challenge-list" id="daily-challenges">
+                        <div class="challenge-item">
+                            <input type="checkbox" id="challenge1" onchange="completeChallenge(1)">
+                            <label for="challenge1">
+                                <i class="fas fa-comments"></i>
+                                Send 5 kind messages
+                                <span class="progress">3/5</span>
+                            </label>
+                        </div>
+                        
+                        <div class="challenge-item">
+                            <input type="checkbox" id="challenge2" onchange="completeChallenge(2)">
+                            <label for="challenge2">
+                                <i class="fas fa-user-plus"></i>
+                                Make a new friend
+                                <span class="progress">0/1</span>
+                            </label>
+                        </div>
+                        
+                        <div class="challenge-item">
+                            <input type="checkbox" id="challenge3" onchange="completeChallenge(3)">
+                            <label for="challenge3">
+                                <i class="fas fa-heart"></i>
+                                Help someone learn
+                                <span class="progress">1/1</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Emoji Picker Modal -->
+    <div id="emoji-picker" class="emoji-modal" style="display: none;">
+        <div class="emoji-container">
+            <div class="emoji-header">
+                <h4>Choose Your Emoji! 😊</h4>
+                <button onclick="toggleEmojiPicker()" class="close-btn">&times;</button>
+            </div>
+            <div class="emoji-grid" id="emoji-grid">
+                <!-- Emojis will be loaded here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Voice Chat Modal -->
+    <div id="voice-chat-modal" class="modal" style="display: none;">
+        <div class="modal-content voice-chat-content">
+            <div class="voice-header">
+                <h3><i class="fas fa-microphone"></i> Voice Chat</h3>
+                <button onclick="endVoiceChat()" class="close-btn">&times;</button>
+            </div>
+            
+            <div class="voice-participants" id="voice-participants">
+                <!-- Voice participants will appear here -->
+            </div>
+            
+            <div class="voice-controls">
+                <button class="voice-btn" onclick="toggleMute()" id="mute-btn">
+                    <i class="fas fa-microphone"></i>
+                </button>
+                <button class="voice-btn" onclick="toggleSpeaker()" id="speaker-btn">
+                    <i class="fas fa-volume-up"></i>
+                </button>
+                <button class="voice-btn leave-btn" onclick="endVoiceChat()">
+                    <i class="fas fa-phone-slash"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Drawing Modal -->
+    <div id="drawing-modal" class="modal" style="display: none;">
+        <div class="modal-content drawing-content">
+            <div class="drawing-header">
+                <h3><i class="fas fa-paint-brush"></i> Create a Doodle!</h3>
+                <button onclick="closeDrawingModal()" class="close-btn">&times;</button>
+            </div>
+            
+            <div class="drawing-tools">
+                <div class="color-palette">
+                    <div class="color-option active" data-color="#ff6b6b" style="background: #ff6b6b;"></div>
+                    <div class="color-option" data-color="#4ecdc4" style="background: #4ecdc4;"></div>
+                    <div class="color-option" data-color="#ffe66d" style="background: #ffe66d;"></div>
+                    <div class="color-option" data-color="#ff8787" style="background: #ff8787;"></div>
+                    <div class="color-option" data-color="#74c0fc" style="background: #74c0fc;"></div>
+                </div>
+                
+                <div class="brush-sizes">
+                    <button class="size-btn active" data-size="2">S</button>
+                    <button class="size-btn" data-size="5">M</button>
+                    <button class="size-btn" data-size="10">L</button>
+                </div>
+                
+                <div class="drawing-actions">
+                    <button onclick="clearCanvas()" class="btn-clear">
+                        <i class="fas fa-eraser"></i> Clear
+                    </button>
+                    <button onclick="sendDrawing()" class="btn-send">
+                        <i class="fas fa-paper-plane"></i> Send
+                    </button>
+                </div>
+            </div>
+            
+            <canvas id="drawing-canvas" width="400" height="300"></canvas>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    <script>
+        // Socket.IO connection
+        const socket = io();
+        let currentRoom = 'general';
+        let currentUser = {
+            id: {{ current_user.id }},
+            username: '{{ current_user.username }}',
+            avatar: '{{ current_user.avatar_url or "default-avatar.png" }}'
+        };
+        let isRecording = false;
+        let mediaRecorder;
+        let audioChunks = [];
+
+        // Initialize chat on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeChat();
+            loadFriends();
+            loadChatRooms();
+            setupSocketListeners();
+            loadEmojiPicker();
+            initializeDrawingCanvas();
+        });
+
+        function initializeChat() {
+            // Join default room
+            socket.emit('join_room', {
+                room: currentRoom,
+                user: currentUser
+            });
+
+            // Load recent messages
+            loadRecentMessages();
+            
+            // Setup real-time features
+            setupRealTimeChat();
+            
+            // Initialize AI safety guardian
+            initializeAIGuardian();
+        }
+
+        function setupSocketListeners() {
+            socket.on('connect', function() {
+                console.log('Connected to chat server');
+                updateOnlineStatus(true);
+            });
+
+            socket.on('disconnect', function() {
+                console.log('Disconnected from chat server');
+                updateOnlineStatus(false);
+            });
+
+            socket.on('new_message', function(data) {
+                displayMessage(data);
+                playNotificationSound();
+            });
+
+            socket.on('user_joined', function(data) {
+                showUserJoinedNotification(data.username);
+                updateRoomUserCount(data.room, data.user_count);
+            });
+
+            socket.on('user_left', function(data) {
+                showUserLeftNotification(data.username);
+                updateRoomUserCount(data.room, data.user_count);
+            });
+
+            socket.on('typing_start', function(data) {
+                showTypingIndicator(data.username);
+            });
+
+            socket.on('typing_stop', function(data) {
+                hideTypingIndicator(data.username);
+            });
+
+            socket.on('friend_online', function(data) {
+                updateFriendStatus(data.user_id, true);
+            });
+
+            socket.on('friend_offline', function(data) {
+                updateFriendStatus(data.user_id, false);
+            });
+
+            socket.on('ai_moderation', function(data) {
+                showAIGuardianMessage(data.message, data.severity);
+            });
+        }
+
+        function sendMessage() {
+            const messageInput = document.getElementById('message-input');
+            const message = messageInput.value.trim();
+            
+            if (!message) return;
+
+            // AI content moderation before sending
+            moderateMessage(message).then(isApproved => {
+                if (isApproved) {
+                    const messageData = {
+                        text: message,
+                        room: currentRoom,
+                        user: currentUser,
+                        timestamp: new Date().toISOString(),
+                        type: 'text'
+                    };
+
+                    socket.emit('send_message', messageData);
+                    displayMessage(messageData, true); // Show as sent
+                    
+                    messageInput.value = '';
+                    updateCharacterCount();
+                    
+                    // Update daily challenge progress
+                    updateChallengeProgress('messages_sent');
+                    
+                    // Real-time learning: analyze message sentiment
+                    analyzeSentimentAndLearn(message);
+                } else {
+                    showAIGuardianMessage("Let's try to keep our messages kind and positive! 💙", "warning");
+                }
+            });
+        }
+
+        function displayMessage(messageData, isSent = false) {
+            const messagesContainer = document.getElementById('chat-messages');
+            const messageElement = document.createElement('div');
+            
+            messageElement.className = `message ${isSent ? 'sent' : 'received'} ${messageData.user.id === currentUser.id ? 'own-message' : ''}`;
+            
+            const timeString = new Date(messageData.timestamp).toLocaleTimeString([], {
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+
+            messageElement.innerHTML = `
+                <div class="message-header">
+                    <div class="user-avatar">
+                        <img src="${messageData.user.avatar}" alt="${messageData.user.username}">
+                        <span class="user-status online"></span>
+                    </div>
+                    <div class="message-info">
+                        <span class="username">${messageData.user.username}</span>
+                        <span class="timestamp">${timeString}</span>
+                    </div>
+                </div>
+                <div class="message-content">
+                    ${formatMessageContent(messageData)}
+                </div>
+                <div class="message-actions">
+                    <button onclick="reactToMessage('${messageData.id}', '❤️')" class="react-btn">
+                        <i class="fas fa-heart"></i>
+                    </button>
+                    <button onclick="replyToMessage('${messageData.id}')" class="reply-btn">
+                        <i class="fas fa-reply"></i>
+                    </button>
+                </div>
+            `;
+
+            messagesContainer.appendChild(messageElement);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            
+            // Animate new message
+            messageElement.classList.add('new-message');
+            setTimeout(() => messageElement.classList.remove('new-message'), 1000);
+        }
+
+        function formatMessageContent(messageData) {
+            let content = messageData.text;
+            
+            switch(messageData.type) {
+                case 'text':
+                    // Convert emojis and format text
+                    content = convertTextToEmojis(content);
+                    content = formatTextStyles(content);
+                    break;
+                case 'voice':
+                    content = `
+                        <div class="voice-message">
+                            <audio controls>
+                                <source src="${messageData.audio_url}" type="audio/webm">
+                            </audio>
+                            <span class="voice-duration">${messageData.duration}s</span>
+                        </div>
+                    `;
+                    break;
+                case 'drawing':
+                    content = `
+                        <div class="drawing-message">
+                            <img src="${messageData.drawing_url}" alt="Drawing" onclick="viewFullDrawing('${messageData.drawing_url}')">
+                        </div>
+                    `;
+                    break;
+                case 'file':
+                    content = `
+                        <div class="file-message">
+                            <i class="fas fa-file"></i>
+                            <a href="${messageData.file_url}" download="${messageData.filename}">
+                                ${messageData.filename}
+                            </a>
+                        </div>
+                    `;
+                    break;
+            }
+            
+            return content;
+        }
+
+        function moderateMessage(message) {
+            return fetch('/api/moderate-content', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    content: message,
+                    user_id: currentUser.id,
+                    context: 'chat'
+                })
+            })
+            .then(response => response.json())
+            .then(data => data.approved)
+            .catch(() => true); // Allow message if moderation service fails
+        }
+
+        function switchRoom(roomName) {
+            if (roomName === currentRoom) return;
+            
+            // Leave current room
+            socket.emit('leave_room', {
+                room: currentRoom,
+                user: currentUser
+            });
+            
+            // Join new room
+            socket.emit('join_room', {
+                room: roomName,
+                user: currentUser
+            });
+            
+            currentRoom = roomName;
+            
+            // Update UI
+            document.querySelectorAll('.room-item').forEach(item => {
+                item.classList.remove('active');
+            });
+            document.querySelector(`[data-room="${roomName}"]`).classList.add('active');
+            
+            document.getElementById('current-room-name').textContent = 
+                document.querySelector(`[data-room="${roomName}"] .room-name`).textContent;
+            
+            // Clear and load messages for new room
+            document.getElementById('chat-messages').innerHTML = '';
+            loadRecentMessages();
+            
+            playSound('room-switch');
+        }
+
+        function recordVoice() {
+            if (!isRecording) {
+                startVoiceRecording();
+            } else {
+                stopVoiceRecording();
+            }
+        }
+
+        function startVoiceRecording() {
+            navigator.mediaDevices.getUserMedia({ audio: true })
+                .then(stream => {
+                    mediaRecorder = new MediaRecorder(stream);
+                    audioChunks = [];
+                    
+                    mediaRecorder.ondataavailable = event => {
+                        audioChunks.push(event.data);
+                    };
+                    
+                    mediaRecorder.onstop = () => {
+                        const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                        sendVoiceMessage(audioBlob);
+                    };
+                    
+                    mediaRecorder.start();
+                    isRecording = true;
+                    
+                    document.getElementById('voice-icon').className = 'fas fa-stop';
+                    document.getElementById('voice-icon').style.color = '#ff4757';
+                })
+                .catch(err => {
+                    console.error('Error accessing microphone:', err);
+                    showNotification('Microphone access denied', 'error');
+                });
+        }
+
+        function stopVoiceRecording() {
+            if (mediaRecorder && isRecording) {
+                mediaRecorder.stop();
+                isRecording = false;
+                
+                document.getElementById('voice-icon').className = 'fas fa-microphone';
+                document.getElementById('voice-icon').style.color = '';
+            }
+        }
+
+        function sendVoiceMessage(audioBlob) {
+            const formData = new FormData();
+            formData.append('audio', audioBlob, 'voice-message.webm');
+            formData.append('room', currentRoom);
+            
+            fetch('/api/upload-voice-message', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    const messageData = {
+                        id: data.message_id,
+                        type: 'voice',
+                        audio_url: data.audio_url,
+                        duration: data.duration,
+                        room: currentRoom,
+                        user: currentUser,
+                        timestamp: new Date().toISOString()
+                    };
+                    
+                    socket.emit('send_message', messageData);
+                    displayMessage(messageData, true);
+                }
+            })
+            .catch(err => {
+                console.error('Error uploading voice message:', err);
+                showNotification('Failed to send voice message', 'error');
+            });
+        }
+
+        function initializeDrawingCanvas() {
+            const canvas = document.getElementById('drawing-canvas');
+            const ctx = canvas.getContext('2d');
+            let isDrawing = false;
+            let currentColor = '#ff6b6b';
+            let currentSize = 2;
+            
+            canvas.addEventListener('mousedown', startDrawing);
+            canvas.addEventListener('mousemove', draw);
+            canvas.addEventListener('mouseup', stopDrawing);
+            
+            // Color picker
+            document.querySelectorAll('.color-option').forEach(option => {
+                option.addEventListener('click', function() {
+                    document.querySelector('.color-option.active').classList.remove('active');
+                    this.classList.add('active');
+                    currentColor = this.dataset.color;
+                });
+            });
+            
+            // Brush size
+            document.querySelectorAll('.size-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    document.querySelector('.size-btn.active').classList.remove('active');
+                    this.classList.add('active');
+                    currentSize = parseInt(this.dataset.size);
+                });
+            });
+            
+            function startDrawing(e) {
+                isDrawing = true;
+                ctx.beginPath();
+                ctx.moveTo(e.offsetX, e.offsetY);
+            }
+            
+            function draw(e) {
+                if (!isDrawing) return;
+                
+                ctx.lineWidth = currentSize;
+                ctx.lineCap = 'round';
+                ctx.strokeStyle = currentColor;
+                
+                ctx.lineTo(e.offsetX, e.offsetY);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(e.offsetX, e.offsetY);
+            }
+            
+            function stopDrawing() {
+                isDrawing = false;
+                ctx.beginPath();
+            }
+        }
+
+        function sendDrawing() {
+            const canvas = document.getElementById('drawing-canvas');
+            canvas.toBlob(blob => {
+                const formData = new FormData();
+                formData.append('drawing', blob, 'doodle.png');
+                formData.append('room', currentRoom);
+                
+                fetch('/api/upload-drawing', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const messageData = {
+                            id: data.message_id,
+                            type: 'drawing',
+                            drawing_url: data.drawing_url,
+                            room: currentRoom,
+                            user: currentUser,
+                            timestamp: new Date().toISOString()
+                        };
+                        
+                        socket.emit('send_message', messageData);
+                        displayMessage(messageData, true);
+                        closeDrawingModal();
+                    }
+                });
+            });
+        }
+
+        function analyzeSentimentAndLearn(message) {
+            fetch('/api/analyze-chat-sentiment', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    message: message,
+                    user_id: currentUser.id,
+                    room: currentRoom
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                // Update user's emotional profile
+                updateEmotionalProfile(data.sentiment);
+                
+                // Provide personalized encouragement
+                if (data.needs_support) {
+                    showSupportMessage(data.support_message);
+                }
+            });
+        }
+
+        function handleMessageKeyPress(event) {
+            if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault();
+                sendMessage();
+            }
+        }
+
+        function handleInputChange() {
+            const input = document.getElementById('message-input');
+            const charCount = document.getElementById('char-count');
+            const sendBtn = document.getElementById('send-btn');
+            
+            charCount.textContent = input.value.length;
+            sendBtn.disabled = input.value.trim().length === 0;
+            
+            // Auto-resize textarea
+            input.style.height = 'auto';
+            input.style.height = (input.scrollHeight) + 'px';
+            
+            // Show typing indicator
+            if (input.value.length > 0) {
+                socket.emit('typing_start', {
+                    room: currentRoom,
+                    username: currentUser.username
+                });
+            } else {
+                socket.emit('typing_stop', {
+                    room: currentRoom,
+                    username: currentUser.username
+                });
+            }
+        }
+
+        // Helper functions
+        function playNotificationSound() {
+            const audio = new Audio('/static/sounds/message-notification.mp3');
+            audio.volume = 0.3;
+            audio.play().catch(() => {}); // Ignore if audio can't play
+        }
+
+        function showNotification(message, type = 'info') {
+            // Create and show notification toast
+            const notification = document.createElement('div');
+            notification.className = `notification ${type}`;
+            notification.textContent = message;
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.classList.add('show');
+            }, 100);
+            
+            setTimeout(() => {
+                notification.classList.remove('show');
+                setTimeout(() => notification.remove(), 300);
+            }, 3000);
+        }
+
+        // Initialize chat when page loads
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initializeChat);
+        } else {
+            initializeChat();
+        }
+    </script>
+</body>
+</html>

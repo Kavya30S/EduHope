@@ -1,48 +1,422 @@
 {% extends "base.html" %}
 
-{% block title %}Your Pet Companion{% endblock %}
+{% block title %}My Pet Companion - EduHope{% endblock %}
 
 {% block content %}
-<h2>Meet {{ pet.name if pet else 'Your New Friend' }}!</h2>
-{% if pet %}
-    <p>Type: {{ pet.type }}</p>
-    <p>Name: {{ pet.name }}</p>
-    <p>Hunger: <span id="hunger">{{ pet.hunger }}</span>/100</p>
-    <p>Happiness: <span id="happiness">{{ pet.happiness }}</span>/100</p>
-    <p>Knowledge: <span id="knowledge">{{ pet.knowledge }}</span></p>
-    <p>Level: <span id="level">{{ pet.level }}</span></p>
-    <form method="POST" action="{{ url_for('pet_companion.feed_pet') }}">
-        <button type="submit">Feed {{ pet.name }}</button>
-    </form>
-    <form method="POST" action="{{ url_for('pet_companion.play_pet') }}">
-        <button type="submit">Play with {{ pet.name }}</button>
-    </form>
-{% else %}
-    <h3>Choose Your Pet!</h3>
-    <form method="POST">
-        <label for="pet_name">Name your pet:</label>
-        <input type="text" name="pet_name" id="pet_name" value="Buddy" required>
-        <label for="pet_type">Pick a type:</label>
-        <select name="pet_type" id="pet_type">
-            <option value="dragon">Dragon</option>
-            <option value="unicorn">Unicorn</option>
-            <option value="robot">Robot</option>
-        </select>
-        <button type="submit">Adopt Pet!</button>
-    </form>
-{% endif %}
+<div class="pet-container">
+    <div class="pet-header">
+        <h1 class="rainbow-text">🌟 Meet {{ pet.name }}! 🌟</h1>
+        <div class="pet-type-badge">{{ pet.type.title() }}</div>
+    </div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <div class="pet-world">
+        <div class="pet-display">
+            <div class="pet-avatar {{ pet.type }}" id="petAvatar">
+                <div class="pet-animation">
+                    <div class="pet-emoji">{{ pet_emojis[pet.type] }}</div>
+                    <div class="pet-expression" id="petExpression">😊</div>
+                    <div class="pet-accessories" id="petAccessories">
+                        {% for accessory in pet.accessories %}
+                            <span class="accessory accessory-{{ accessory.type }}">{{ accessory.emoji }}</span>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            
+            <div class="pet-speech-bubble" id="speechBubble">
+                <p id="petSpeech">Hi there! I'm excited to learn with you today! 🎉</p>
+            </div>
+        </div>
+
+        <div class="pet-stats">
+            <div class="stat-bar">
+                <div class="stat-label">❤️ Health</div>
+                <div class="stat-container">
+                    <div class="stat-fill health" style="width: {{ pet.health }}%"></div>
+                    <span class="stat-value">{{ pet.health }}/100</span>
+                </div>
+            </div>
+            
+            <div class="stat-bar">
+                <div class="stat-label">😊 Happiness</div>
+                <div class="stat-container">
+                    <div class="stat-fill happiness" style="width: {{ pet.happiness }}%"></div>
+                    <span class="stat-value">{{ pet.happiness }}/100</span>
+                </div>
+            </div>
+            
+            <div class="stat-bar">
+                <div class="stat-label">🍎 Hunger</div>
+                <div class="stat-container">
+                    <div class="stat-fill hunger" style="width: {{ (100 - pet.hunger) }}%"></div>
+                    <span class="stat-value">{{ pet.hunger }}/100</span>
+                </div>
+            </div>
+            
+            <div class="stat-bar">
+                <div class="stat-label">⚡ Energy</div>
+                <div class="stat-container">
+                    <div class="stat-fill energy" style="width: {{ pet.energy }}%"></div>
+                    <span class="stat-value">{{ pet.energy }}/100</span>
+                </div>
+            </div>
+            
+            <div class="level-display">
+                <div class="level-badge">Level {{ pet.level }}</div>
+                <div class="xp-bar">
+                    <div class="xp-fill" style="width: {{ (pet.experience % 100) }}%"></div>
+                    <span class="xp-text">{{ pet.experience % 100 }}/100 XP</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="pet-actions">
+        <div class="action-buttons">
+            <button class="action-btn feed-btn" onclick="feedPet()" id="feedBtn">
+                <span class="btn-emoji">🍎</span>
+                <span class="btn-text">Feed</span>
+                <span class="btn-cost">5 coins</span>
+            </button>
+            
+            <button class="action-btn play-btn" onclick="playWithPet()" id="playBtn">
+                <span class="btn-emoji">🎾</span>
+                <span class="btn-text">Play</span>
+                <span class="btn-cost">3 coins</span>
+            </button>
+            
+            <button class="action-btn wash-btn" onclick="washPet()" id="washBtn">
+                <span class="btn-emoji">🛁</span>
+                <span class="btn-text">Wash</span>
+                <span class="btn-cost">4 coins</span>
+            </button>
+            
+            <button class="action-btn train-btn" onclick="trainPet()" id="trainBtn">
+                <span class="btn-emoji">📚</span>
+                <span class="btn-text">Study Together</span>
+                <span class="btn-cost">Free!</span>
+            </button>
+        </div>
+    </div>
+
+    <div class="pet-shop">
+        <h3>🛍️ Pet Shop</h3>
+        <div class="accessories-grid">
+            {% for accessory in available_accessories %}
+            <div class="accessory-item" data-id="{{ accessory.id }}">
+                <div class="accessory-preview">{{ accessory.emoji }}</div>
+                <div class="accessory-name">{{ accessory.name }}</div>
+                <div class="accessory-price">{{ accessory.cost }} coins</div>
+                <button class="buy-btn" onclick="buyAccessory({{ accessory.id }})"
+                        {% if current_user.coins < accessory.cost %}disabled{% endif %}>
+                    {% if current_user.coins >= accessory.cost %}Buy{% else %}Not enough coins{% endif %}
+                </button>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div class="learning-challenges">
+        <h3>🎯 Unlock New Items!</h3>
+        <div class="challenges-grid">
+            <div class="challenge-card">
+                <div class="challenge-icon">🧮</div>
+                <div class="challenge-title">Math Master</div>
+                <div class="challenge-desc">Complete 5 math lessons</div>
+                <div class="challenge-reward">Unlock: Calculator Hat 🎩</div>
+                <div class="progress-bar">
+                    <div class="progress-fill" style="width: {{ (current_user.math_lessons_completed * 20) }}%"></div>
+                </div>
+                <span class="progress-text">{{ current_user.math_lessons_completed }}/5</span>
+            </div>
+            
+            <div class="challenge-card">
+                <div class="challenge-icon">📖</div>
+                <div class="challenge-title">Reading Champion</div>
+                <div class="challenge-desc">Read 3 stories completely</div>
+                <div class="challenge-reward">Unlock: Reading Glasses 👓</div>
+                <div class="progress-bar">
+                    <div class="progress-fill" style="width: {{ (current_user.stories_read * 33.33) }}%"></div>
+                </div>
+                <span class="progress-text">{{ current_user.stories_read }}/3</span>
+            </div>
+            
+            <div class="challenge-card">
+                <div class="challenge-icon">🎮</div>
+                <div class="challenge-title">Game Master</div>
+                <div class="challenge-desc">Win 10 games</div>
+                <div class="challenge-reward">Unlock: Champion Crown 👑</div>
+                <div class="progress-bar">
+                    <div class="progress-fill" style="width: {{ (current_user.games_won * 10) }}%"></div>
+                </div>
+                <span class="progress-text">{{ current_user.games_won }}/10</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="pet-emotions">
+        <h3>💭 How is {{ pet.name }} feeling?</h3>
+        <div class="emotion-display">
+            <div class="current-emotion">
+                <span class="emotion-emoji">{{ pet.current_emotion_emoji }}</span>
+                <span class="emotion-text">{{ pet.current_emotion }}</span>
+            </div>
+            <div class="emotion-reason">{{ pet.emotion_reason }}</div>
+        </div>
+    </div>
+
+    <div class="mini-games">
+        <h3>🎲 Quick Games with {{ pet.name }}</h3>
+        <div class="games-grid">
+            <button class="mini-game-btn" onclick="startMemoryGame()">
+                <span class="game-icon">🧠</span>
+                <span class="game-name">Memory Match</span>
+            </button>
+            <button class="mini-game-btn" onclick="startColorGame()">
+                <span class="game-icon">🌈</span>
+                <span class="game-name">Color Quest</span>
+            </button>
+            <button class="mini-game-btn" onclick="startRhymeGame()">
+                <span class="game-icon">🎵</span>
+                <span class="game-name">Rhyme Time</span>
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Mini Game Modals -->
+<div id="memoryGameModal" class="game-modal">
+    <div class="modal-content">
+        <span class="close" onclick="closeGameModal()">&times;</span>
+        <div id="memoryGameArea"></div>
+    </div>
+</div>
+
+<div id="colorGameModal" class="game-modal">
+    <div class="modal-content">
+        <span class="close" onclick="closeGameModal()">&times;</span>
+        <div id="colorGameArea"></div>
+    </div>
+</div>
+
+<div id="rhymeGameModal" class="game-modal">
+    <div class="modal-content">
+        <span class="close" onclick="closeGameModal()">&times;</span>
+        <div id="rhymeGameArea"></div>
+    </div>
+</div>
+
 <script>
-    const socket = io();
-    socket.on('pet_update', function(data) {
-        if (data.hunger) document.getElementById('hunger').textContent = data.hunger;
-        if (data.happiness) document.getElementById('happiness').textContent = data.happiness;
-        if (data.knowledge) document.getElementById('knowledge').textContent = data.knowledge;
+// Pet data from server
+const petData = {
+    id: {{ pet.id }},
+    name: "{{ pet.name }}",
+    type: "{{ pet.type }}",
+    health: {{ pet.health }},
+    happiness: {{ pet.happiness }},
+    hunger: {{ pet.hunger }},
+    energy: {{ pet.energy }},
+    level: {{ pet.level }},
+    experience: {{ pet.experience }}
+};
+
+const userCoins = {{ current_user.coins }};
+
+// Pet interaction functions
+async function feedPet() {
+    if (userCoins < 5) {
+        showMessage("You need 5 coins to feed {{ pet.name }}! Complete more lessons to earn coins.");
+        return;
+    }
+    
+    const response = await fetch('/pet/feed', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({pet_id: petData.id})
     });
-    socket.on('level_up', function(data) {
-        document.getElementById('level').textContent = data.level;
-        alert('Wow! {{ pet.name }} leveled up to ' + data.level + '!');
+    
+    const result = await response.json();
+    if (result.success) {
+        updatePetStats(result.pet_stats);
+        showMessage("{{ pet.name }} loved the food! +" + result.health_gained + " health!");
+        animatePetAction('eating');
+    }
+}
+
+async function playWithPet() {
+    if (userCoins < 3) {
+        showMessage("You need 3 coins to play with {{ pet.name }}! Complete more lessons to earn coins.");
+        return;
+    }
+    
+    const response = await fetch('/pet/play', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({pet_id: petData.id})
     });
+    
+    const result = await response.json();
+    if (result.success) {
+        updatePetStats(result.pet_stats);
+        showMessage("{{ pet.name }} had so much fun! +" + result.happiness_gained + " happiness!");
+        animatePetAction('playing');
+    }
+}
+
+async function washPet() {
+    if (userCoins < 4) {
+        showMessage("You need 4 coins to wash {{ pet.name }}! Complete more lessons to earn coins.");
+        return;
+    }
+    
+    const response = await fetch('/pet/wash', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({pet_id: petData.id})
+    });
+    
+    const result = await response.json();
+    if (result.success) {
+        updatePetStats(result.pet_stats);
+        showMessage("{{ pet.name }} is squeaky clean! +" + result.health_gained + " health!");
+        animatePetAction('washing');
+    }
+}
+
+async function trainPet() {
+    window.location.href = '/education/lessons';
+}
+
+function updatePetStats(stats) {
+    // Update visual stats
+    document.querySelector('.health').style.width = stats.health + '%';
+    document.querySelector('.happiness').style.width = stats.happiness + '%';
+    document.querySelector('.hunger').style.width = (100 - stats.hunger) + '%';
+    document.querySelector('.energy').style.width = stats.energy + '%';
+    
+    // Update text values
+    document.querySelectorAll('.stat-value')[0].textContent = stats.health + '/100';
+    document.querySelectorAll('.stat-value')[1].textContent = stats.happiness + '/100';
+    document.querySelectorAll('.stat-value')[2].textContent = stats.hunger + '/100';
+    document.querySelectorAll('.stat-value')[3].textContent = stats.energy + '/100';
+    
+    // Update pet expression based on stats
+    updatePetExpression(stats);
+}
+
+function updatePetExpression(stats) {
+    const expression = document.getElementById('petExpression');
+    if (stats.happiness > 80) expression.textContent = '😄';
+    else if (stats.happiness > 60) expression.textContent = '😊';
+    else if (stats.happiness > 40) expression.textContent = '😐';
+    else if (stats.happiness > 20) expression.textContent = '😔';
+    else expression.textContent = '😢';
+}
+
+function animatePetAction(action) {
+    const petAvatar = document.getElementById('petAvatar');
+    petAvatar.classList.add('action-' + action);
+    setTimeout(() => {
+        petAvatar.classList.remove('action-' + action);
+    }, 2000);
+}
+
+function showMessage(message) {
+    const speechBubble = document.getElementById('petSpeech');
+    speechBubble.textContent = message;
+    
+    // Animate speech bubble
+    document.getElementById('speechBubble').classList.add('bounce');
+    setTimeout(() => {
+        document.getElementById('speechBubble').classList.remove('bounce');
+    }, 1000);
+}
+
+// Mini game functions
+function startMemoryGame() {
+    document.getElementById('memoryGameModal').style.display = 'block';
+    initMemoryGame();
+}
+
+function startColorGame() {
+    document.getElementById('colorGameModal').style.display = 'block';
+    initColorGame();
+}
+
+function startRhymeGame() {
+    document.getElementById('rhymeGameModal').style.display = 'block';
+    initRhymeGame();
+}
+
+function closeGameModal() {
+    document.querySelectorAll('.game-modal').forEach(modal => {
+        modal.style.display = 'none';
+    });
+}
+
+// Auto-update pet status every 30 seconds
+setInterval(async () => {
+    const response = await fetch('/pet/status/' + petData.id);
+    const result = await response.json();
+    if (result.success) {
+        updatePetStats(result.pet_stats);
+        
+        // Update pet speech with random messages
+        const messages = [
+            "I'm learning so much with you! 📚",
+            "Want to play a game together? 🎮",
+            "You're the best friend ever! 💝",
+            "Let's go on an adventure! 🗺️",
+            "I love spending time with you! 🌟"
+        ];
+        if (Math.random() < 0.3) { // 30% chance to show random message
+            showMessage(messages[Math.floor(Math.random() * messages.length)]);
+        }
+    }
+}, 30000);
+
+// Initialize page
+document.addEventListener('DOMContentLoaded', function() {
+    // Add floating particles effect
+    createFloatingParticles();
+    
+    // Start ambient pet animations
+    startAmbientAnimations();
+});
+
+function createFloatingParticles() {
+    const container = document.querySelector('.pet-world');
+    for (let i = 0; i < 20; i++) {
+        const particle = document.createElement('div');
+        particle.className = 'floating-particle';
+        particle.style.left = Math.random() * 100 + '%';
+        particle.style.animationDelay = Math.random() * 2 + 's';
+        particle.style.animationDuration = (Math.random() * 3 + 2) + 's';
+        particle.textContent = ['✨', '⭐', '💫', '🌟'][Math.floor(Math.random() * 4)];
+        container.appendChild(particle);
+    }
+}
+
+function startAmbientAnimations() {
+    // Pet breathing animation
+    setInterval(() => {
+        document.getElementById('petAvatar').classList.add('breathing');
+        setTimeout(() => {
+            document.getElementById('petAvatar').classList.remove('breathing');
+        }, 1000);
+    }, 5000);
+    
+    // Random pet movements
+    setInterval(() => {
+        if (Math.random() < 0.4) {
+            const movements = ['bounce', 'wiggle', 'spin'];
+            const movement = movements[Math.floor(Math.random() * movements.length)];
+            document.getElementById('petAvatar').classList.add(movement);
+            setTimeout(() => {
+                document.getElementById('petAvatar').classList.remove(movement);
+            }, 1500);
+        }
+    }, 8000);
+}
 </script>
 {% endblock %}

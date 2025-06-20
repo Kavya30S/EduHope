@@ -1,8 +1,510 @@
-{% extends "base.html" %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🌟 Magical Learning Adventure - EduHope</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka+One:wght@400&family=Nunito:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body class="lesson-page">
+    <div class="magical-background">
+        <div class="floating-particles"></div>
+        <div class="sparkles"></div>
+    </div>
 
-{% block title %}Lesson{% endblock %}
+    <nav class="rainbow-nav">
+        <div class="nav-container">
+            <a href="{{ url_for('main.dashboard') }}" class="logo-link">
+                <i class="fas fa-home sparkle-icon"></i> Home
+            </a>
+            <div class="nav-links">
+                <a href="{{ url_for('pet_companion.pet_status') }}" class="pet-status-mini">
+                    <i class="fas fa-heart"></i> 
+                    <span id="pet-happiness">{{ pet.happiness if pet else 50 }}</span>
+                </a>
+                <div class="user-gems">
+                    <i class="fas fa-gem"></i> <span id="user-gems">{{ current_user.gems or 0 }}</span>
+                </div>
+            </div>
+        </div>
+    </nav>
 
-{% block content %}
-<h2>Lesson Title</h2>
-<p>Lesson content goes here.</p>
-{% endblock %}
+    <main class="lesson-container">
+        <div class="lesson-header bouncy-entrance">
+            <div class="lesson-mascot">
+                <div class="mascot-character animated-character">
+                    <i class="fas fa-robot rainbow-text"></i>
+                </div>
+                <div class="speech-bubble">
+                    <p id="mascot-speech">"Let's learn something amazing together! 🌟"</p>
+                </div>
+            </div>
+            
+            <div class="lesson-info">
+                <h1 class="lesson-title rainbow-text">{{ lesson.title }}</h1>
+                <div class="lesson-meta">
+                    <span class="difficulty-badge {{ lesson.difficulty.lower() }}">
+                        <i class="fas fa-star"></i> {{ lesson.difficulty }}
+                    </span>
+                    <span class="subject-badge">
+                        <i class="fas fa-book"></i> {{ lesson.subject }}
+                    </span>
+                    <span class="age-badge">
+                        <i class="fas fa-child"></i> Age {{ lesson.age_group }}
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        <div class="lesson-progress-bar">
+            <div class="progress-container">
+                <div class="progress-fill" id="lesson-progress" style="width: 0%"></div>
+                <div class="progress-star" id="progress-star">⭐</div>
+            </div>
+            <span class="progress-text">0% Complete</span>
+        </div>
+
+        <div class="lesson-content-wrapper">
+            <div class="lesson-content card-3d" id="lesson-content">
+                <div class="content-section active" id="content-intro">
+                    <div class="content-header">
+                        <h2><i class="fas fa-rocket"></i> Let's Start Our Adventure!</h2>
+                    </div>
+                    
+                    <div class="interactive-intro">
+                        <div class="lesson-preview">
+                            <p class="big-text">{{ lesson.description }}</p>
+                        </div>
+                        
+                        <div class="learning-objectives">
+                            <h3><i class="fas fa-target"></i> What We'll Discover:</h3>
+                            <ul class="colorful-list">
+                                {% for objective in lesson.objectives %}
+                                <li class="bounce-in"><i class="fas fa-check-circle"></i> {{ objective }}</li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+
+                        <button class="btn-magical start-lesson-btn" onclick="startLessonAdventure()">
+                            <i class="fas fa-play"></i> Begin Adventure! ✨
+                        </button>
+                    </div>
+                </div>
+
+                <div class="content-section" id="content-main">
+                    <div class="lesson-body">
+                        <div class="content-blocks" id="content-blocks">
+                            {{ lesson.content | safe }}
+                        </div>
+
+                        <div class="interactive-elements">
+                            <div class="mini-games-section">
+                                <h3><i class="fas fa-gamepad"></i> Practice Games</h3>
+                                <div class="mini-games-grid" id="mini-games">
+                                    <!-- Mini games will be loaded here -->
+                                </div>
+                            </div>
+
+                            <div class="ai-helper" id="ai-helper">
+                                <div class="ai-character">
+                                    <i class="fas fa-brain rainbow-text"></i>
+                                </div>
+                                <div class="ai-suggestions">
+                                    <h4>🤖 Your AI Learning Buddy Says:</h4>
+                                    <div id="ai-feedback" class="ai-feedback-text">
+                                        I'm here to help! Ask me anything about this lesson! 😊
+                                    </div>
+                                    <input type="text" id="ai-question" placeholder="Ask me something..." class="ai-input">
+                                    <button onclick="askAI()" class="btn-ai">
+                                        <i class="fas fa-paper-plane"></i> Ask
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="content-section" id="content-quiz">
+                    <div class="quiz-container">
+                        <h2><i class="fas fa-puzzle-piece"></i> Knowledge Challenge!</h2>
+                        <div id="quiz-questions" class="quiz-questions">
+                            <!-- Quiz questions will be loaded here -->
+                        </div>
+                        <div class="quiz-results" id="quiz-results" style="display: none;">
+                            <div class="results-animation">
+                                <div class="celebration-stars"></div>
+                                <h3 id="results-title">Fantastic Job! 🌟</h3>
+                                <div class="score-display">
+                                    <div class="score-circle">
+                                        <span id="final-score">0</span>
+                                        <small>/{{ lesson.quiz_questions|length if lesson.quiz_questions else 5 }}</small>
+                                    </div>
+                                </div>
+                                <div class="achievements-earned" id="achievements">
+                                    <!-- Achievements will be shown here -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="lesson-sidebar">
+                <div class="help-companion card-3d">
+                    <div class="companion-avatar">
+                        <img src="{{ url_for('static', filename='images/companion.png') }}" 
+                             alt="Learning Companion" id="companion-avatar">
+                    </div>
+                    <div class="companion-chat">
+                        <div class="chat-messages" id="companion-messages">
+                            <div class="message companion-message">
+                                <p>Hi there! I'm here to help you learn! 🎉</p>
+                            </div>
+                        </div>
+                        <div class="chat-input-area">
+                            <input type="text" id="companion-input" placeholder="Need help? Ask me!">
+                            <button onclick="sendCompanionMessage()" class="btn-companion">
+                                <i class="fas fa-paper-plane"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="lesson-tools card-3d">
+                    <h4><i class="fas fa-tools"></i> Learning Tools</h4>
+                    <div class="tools-grid">
+                        <button class="tool-btn" onclick="toggleNotes()">
+                            <i class="fas fa-sticky-note"></i>
+                            <span>Notes</span>
+                        </button>
+                        <button class="tool-btn" onclick="toggleHighlighter()">
+                            <i class="fas fa-highlighter"></i>
+                            <span>Highlight</span>
+                        </button>
+                        <button class="tool-btn" onclick="toggleAudio()">
+                            <i class="fas fa-volume-up"></i>
+                            <span>Read Aloud</span>
+                        </button>
+                        <button class="tool-btn" onclick="translateContent()">
+                            <i class="fas fa-language"></i>
+                            <span>Translate</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="motivation-meter card-3d">
+                    <h4><i class="fas fa-fire"></i> Motivation Level</h4>
+                    <div class="meter-container">
+                        <div class="meter-fill" id="motivation-meter" style="height: 75%"></div>
+                        <div class="meter-labels">
+                            <span>🔥</span>
+                            <span>💪</span>
+                            <span>⭐</span>
+                            <span>🌟</span>
+                            <span>🚀</span>
+                        </div>
+                    </div>
+                    <p class="motivation-text">You're doing amazing! Keep going! 🎯</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="lesson-navigation">
+            <button class="nav-btn prev-btn" onclick="previousSection()" disabled>
+                <i class="fas fa-arrow-left"></i> Previous
+            </button>
+            <div class="section-indicators">
+                <span class="indicator active" data-section="intro">1</span>
+                <span class="indicator" data-section="main">2</span>
+                <span class="indicator" data-section="quiz">3</span>
+            </div>
+            <button class="nav-btn next-btn" onclick="nextSection()">
+                Next <i class="fas fa-arrow-right"></i>
+            </button>
+        </div>
+    </main>
+
+    <!-- Notes Modal -->
+    <div id="notes-modal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="toggleNotes()">&times;</span>
+            <h3><i class="fas fa-sticky-note"></i> My Learning Notes</h3>
+            <textarea id="lesson-notes" placeholder="Write your thoughts and notes here...">{{ user_notes or '' }}</textarea>
+            <button onclick="saveNotes()" class="btn-magical">
+                <i class="fas fa-save"></i> Save Notes
+            </button>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    <script>
+        let currentSection = 0;
+        let lessonData = {{ lesson_data | tojsonfilter | safe }};
+        let quizScore = 0;
+        let totalQuestions = 0;
+        let userProgress = {{ user_progress or 0 }};
+        let lessonId = {{ lesson.id }};
+
+        // Initialize lesson on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeLesson();
+            loadUserProgress();
+            startRealTimeLearning();
+        });
+
+        function initializeLesson() {
+            updateProgressBar(userProgress);
+            loadMiniGames();
+            initializeQuiz();
+            setupAIHelper();
+            createFloatingElements();
+        }
+
+        function startLessonAdventure() {
+            playSound('adventure-start');
+            showSection('main');
+            trackLearningEvent('lesson_started', { lesson_id: lessonId });
+        }
+
+        function startRealTimeLearning() {
+            // Real-time AI adaptation based on user interaction
+            setInterval(() => {
+                analyzeUserBehavior();
+                adaptContent();
+                updateMotivation();
+            }, 30000); // Every 30 seconds
+
+            // Track user interactions for personalization
+            document.addEventListener('click', trackInteraction);
+            document.addEventListener('scroll', trackScrollBehavior);
+        }
+
+        function analyzeUserBehavior() {
+            const behaviorData = {
+                time_spent: Date.now() - startTime,
+                interactions: interactionCount,
+                progress: currentSection / 3 * 100,
+                quiz_attempts: quizAttempts,
+                help_requests: helpRequests
+            };
+
+            fetch('/api/analyze-behavior', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(behaviorData)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.suggestions) {
+                    updateAIFeedback(data.suggestions);
+                }
+                if (data.difficulty_adjustment) {
+                    adjustDifficulty(data.difficulty_adjustment);
+                }
+            });
+        }
+
+        function adaptContent() {
+            // Dynamically adjust content based on user performance
+            fetch(`/api/adapt-content/${lessonId}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    current_progress: userProgress,
+                    performance_data: getPerformanceData()
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.new_content) {
+                    injectAdaptiveContent(data.new_content);
+                }
+                if (data.recommendations) {
+                    showPersonalizedRecommendations(data.recommendations);
+                }
+            });
+        }
+
+        function showSection(sectionName) {
+            document.querySelectorAll('.content-section').forEach(section => {
+                section.classList.remove('active');
+            });
+            
+            document.getElementById(`content-${sectionName}`).classList.add('active');
+            
+            // Update indicators
+            document.querySelectorAll('.indicator').forEach((indicator, index) => {
+                indicator.classList.remove('active');
+                if (indicator.dataset.section === sectionName) {
+                    indicator.classList.add('active');
+                    currentSection = index;
+                }
+            });
+
+            // Update navigation buttons
+            document.querySelector('.prev-btn').disabled = currentSection === 0;
+            document.querySelector('.next-btn').disabled = currentSection === 2;
+            
+            updateProgressBar((currentSection + 1) / 3 * 100);
+            
+            // Animate mascot
+            animateMascot(sectionName);
+        }
+
+        function nextSection() {
+            if (currentSection < 2) {
+                const sections = ['intro', 'main', 'quiz'];
+                showSection(sections[currentSection + 1]);
+                celebrateProgress();
+            }
+        }
+
+        function previousSection() {
+            if (currentSection > 0) {
+                const sections = ['intro', 'main', 'quiz'];
+                showSection(sections[currentSection - 1]);
+            }
+        }
+
+        function askAI() {
+            const question = document.getElementById('ai-question').value;
+            if (!question.trim()) return;
+
+            // Show loading
+            document.getElementById('ai-feedback').innerHTML = 
+                '<i class="fas fa-spinner fa-spin"></i> Let me think about that...';
+
+            fetch('/api/ai-help', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    question: question,
+                    lesson_id: lessonId,
+                    context: getCurrentLessonContext()
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('ai-feedback').innerHTML = data.answer;
+                document.getElementById('ai-question').value = '';
+                playSound('ai-response');
+                
+                // Track AI interaction for personalization
+                trackLearningEvent('ai_help_used', {
+                    question: question,
+                    lesson_id: lessonId
+                });
+            })
+            .catch(error => {
+                document.getElementById('ai-feedback').innerHTML = 
+                    "Oops! I'm having trouble right now. Try asking again! 😅";
+            });
+        }
+
+        function loadMiniGames() {
+            fetch(`/api/mini-games/${lessonId}`)
+                .then(response => response.json())
+                .then(games => {
+                    const gamesContainer = document.getElementById('mini-games');
+                    games.forEach(game => {
+                        const gameElement = createMiniGame(game);
+                        gamesContainer.appendChild(gameElement);
+                    });
+                });
+        }
+
+        function createMiniGame(game) {
+            const gameDiv = document.createElement('div');
+            gameDiv.className = 'mini-game card-3d';
+            gameDiv.innerHTML = `
+                <div class="game-icon">
+                    <i class="${game.icon}"></i>
+                </div>
+                <h4>${game.title}</h4>
+                <p>${game.description}</p>
+                <button onclick="playMiniGame('${game.id}')" class="btn-game">
+                    <i class="fas fa-play"></i> Play
+                </button>
+            `;
+            return gameDiv;
+        }
+
+        function playMiniGame(gameId) {
+            // Launch mini-game in modal or new section
+            fetch(`/api/play-game/${gameId}`)
+                .then(response => response.json())
+                .then(gameData => {
+                    openGameModal(gameData);
+                });
+        }
+
+        function updateProgressBar(percentage) {
+            const progressBar = document.getElementById('lesson-progress');
+            const progressStar = document.getElementById('progress-star');
+            const progressText = document.querySelector('.progress-text');
+            
+            progressBar.style.width = percentage + '%';
+            progressStar.style.left = percentage + '%';
+            progressText.textContent = Math.round(percentage) + '% Complete';
+            
+            // Save progress to backend
+            saveProgress(percentage);
+        }
+
+        function saveProgress(percentage) {
+            fetch('/api/save-progress', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    lesson_id: lessonId,
+                    progress: percentage,
+                    section: currentSection,
+                    timestamp: new Date().toISOString()
+                })
+            });
+        }
+
+        function celebrateProgress() {
+            // Create celebration animation
+            createConfetti();
+            playSound('level-up');
+            
+            // Update pet happiness
+            fetch('/api/update-pet-happiness', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'lesson_progress',
+                    amount: 10
+                })
+            });
+        }
+
+        function createConfetti() {
+            for (let i = 0; i < 50; i++) {
+                const confetti = document.createElement('div');
+                confetti.className = 'confetti';
+                confetti.style.left = Math.random() * 100 + '%';
+                confetti.style.animationDelay = Math.random() * 3 + 's';
+                confetti.style.backgroundColor = getRandomColor();
+                document.body.appendChild(confetti);
+                
+                setTimeout(() => confetti.remove(), 3000);
+            }
+        }
+
+        function getRandomColor() {
+            const colors = ['#ff6b6b', '#4ecdc4', '#ffe66d', '#ff8787', '#74c0fc'];
+            return colors[Math.floor(Math.random() * colors.length)];
+        }
+
+        // Initialize learning session
+        let startTime = Date.now();
+        let interactionCount = 0;
+        let quizAttempts = 0;
+        let helpRequests = 0;
+    </script>
+</body>
+</html>

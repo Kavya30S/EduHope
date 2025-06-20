@@ -1,19 +1,442 @@
-{% extends "base.html" %}
-
-{% block title %}Login{% endblock %}
-
-{% block content %}
-<h2>Login</h2>
-<form method="POST">
-    <div class="form-group">
-        <label>Email</label>
-        <input type="email" name="email" required>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Welcome to EduHope - Choose Your Magical Companion!</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+        .login-container {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .floating-elements {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+        
+        .star, .cloud, .sparkle {
+            position: absolute;
+            animation: float 6s ease-in-out infinite;
+        }
+        
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-20px); }
+        }
+        
+        .login-box {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 25px;
+            padding: 40px;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            max-width: 800px;
+            width: 90%;
+            position: relative;
+            z-index: 10;
+        }
+        
+        .pet-selection {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 15px;
+            margin: 30px 0;
+            max-height: 400px;
+            overflow-y: auto;
+            padding: 20px;
+            background: rgba(240, 248, 255, 0.8);
+            border-radius: 15px;
+        }
+        
+        .pet-option {
+            background: linear-gradient(145deg, #ffffff, #f0f8ff);
+            border: 3px solid transparent;
+            border-radius: 15px;
+            padding: 15px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .pet-option:hover {
+            transform: scale(1.05);
+            border-color: #ff6b9d;
+            box-shadow: 0 10px 25px rgba(255, 107, 157, 0.3);
+        }
+        
+        .pet-option.selected {
+            border-color: #4ecdc4;
+            background: linear-gradient(145deg, #4ecdc4, #44a08d);
+            color: white;
+            transform: scale(1.1);
+        }
+        
+        .pet-emoji {
+            font-size: 40px;
+            display: block;
+            margin-bottom: 8px;
+            animation: bounce 2s infinite;
+        }
+        
+        @keyframes bounce {
+            0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
+            40% { transform: translateY(-10px); }
+            60% { transform: translateY(-5px); }
+        }
+        
+        .pet-name {
+            font-size: 14px;
+            font-weight: bold;
+            color: #333;
+        }
+        
+        .pet-option.selected .pet-name {
+            color: white;
+        }
+        
+        .form-group {
+            margin: 20px 0;
+            text-align: left;
+        }
+        
+        .form-group input {
+            width: 100%;
+            padding: 15px;
+            border: 2px solid #ddd;
+            border-radius: 25px;
+            font-size: 16px;
+            transition: all 0.3s ease;
+        }
+        
+        .form-group input:focus {
+            outline: none;
+            border-color: #4ecdc4;
+            box-shadow: 0 0 15px rgba(78, 205, 196, 0.3);
+        }
+        
+        .magic-button {
+            background: linear-gradient(135deg, #ff6b9d, #c44569);
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            border-radius: 50px;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin: 10px;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .magic-button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 25px rgba(255, 107, 157, 0.4);
+        }
+        
+        .magic-button:active {
+            transform: translateY(0);
+        }
+        
+        .welcome-text {
+            color: #333;
+            font-size: 28px;
+            font-weight: bold;
+            margin-bottom: 20px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        
+        .subtitle {
+            color: #666;
+            font-size: 16px;
+            margin-bottom: 30px;
+        }
+        
+        .tab-container {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 30px;
+        }
+        
+        .tab {
+            background: #f0f8ff;
+            border: none;
+            padding: 12px 25px;
+            margin: 0 5px;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .tab.active {
+            background: linear-gradient(135deg, #4ecdc4, #44a08d);
+            color: white;
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        .error-message {
+            color: #e74c3c;
+            background: rgba(231, 76, 60, 0.1);
+            padding: 10px;
+            border-radius: 10px;
+            margin: 10px 0;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <div class="floating-elements">
+            <div class="star" style="top: 10%; left: 10%; font-size: 20px;">⭐</div>
+            <div class="cloud" style="top: 20%; right: 15%; font-size: 30px;">☁️</div>
+            <div class="sparkle" style="top: 60%; left: 20%; font-size: 25px;">✨</div>
+            <div class="star" style="bottom: 20%; right: 10%; font-size: 18px;">🌟</div>
+            <div class="sparkle" style="bottom: 40%; left: 80%; font-size: 22px;">💫</div>
+        </div>
+        
+        <div class="login-box">
+            <h1 class="welcome-text">🌟 Welcome to EduHope! 🌟</h1>
+            <p class="subtitle">Choose your magical companion and start your learning adventure!</p>
+            
+            <div class="tab-container">
+                <button class="tab active" onclick="switchTab('login')">Login</button>
+                <button class="tab" onclick="switchTab('register')">Join Adventure</button>
+            </div>
+            
+            <div class="error-message" id="errorMessage"></div>
+            
+            <!-- Login Form -->
+            <div id="login-content" class="tab-content active">
+                <form method="POST" action="{{ url_for('auth.login') }}">
+                    <div class="form-group">
+                        <input type="text" name="username" placeholder="🦄 Enter your magical username" required>
+                    </div>
+                    <div class="form-group">
+                        <input type="password" name="password" placeholder="🔐 Enter your secret spell" required>
+                    </div>
+                    <button type="submit" class="magic-button">✨ Start Adventure ✨</button>
+                </form>
+            </div>
+            
+            <!-- Registration Form -->
+            <div id="register-content" class="tab-content">
+                <form method="POST" action="{{ url_for('auth.register') }}" id="registerForm">
+                    <div class="form-group">
+                        <input type="text" name="username" placeholder="🎭 Choose your adventurer name" required>
+                    </div>
+                    <div class="form-group">
+                        <input type="email" name="email" placeholder="📧 Your magical message portal" required>
+                    </div>
+                    <div class="form-group">
+                        <input type="password" name="password" placeholder="🔐 Create your secret spell" required>
+                    </div>
+                    <div class="form-group">
+                        <input type="number" name="age" placeholder="🎂 How many years of wisdom?" min="3" max="18" required>
+                    </div>
+                    
+                    <h3 style="color: #333; margin-top: 30px;">🐾 Choose Your Magical Companion 🐾</h3>
+                    <p style="color: #666; margin-bottom: 20px;">Pick a friend who will learn and grow with you!</p>
+                    
+                    <div class="pet-selection">
+                        <div class="pet-option" data-pet="dragon">
+                            <span class="pet-emoji">🐉</span>
+                            <div class="pet-name">Flame Dragon</div>
+                        </div>
+                        <div class="pet-option" data-pet="unicorn">
+                            <span class="pet-emoji">🦄</span>
+                            <div class="pet-name">Rainbow Unicorn</div>
+                        </div>
+                        <div class="pet-option" data-pet="phoenix">
+                            <span class="pet-emoji">🔥</span>
+                            <div class="pet-name">Fire Phoenix</div>
+                        </div>
+                        <div class="pet-option" data-pet="griffin">
+                            <span class="pet-emoji">🦅</span>
+                            <div class="pet-name">Sky Griffin</div>
+                        </div>
+                        <div class="pet-option" data-pet="robot">
+                            <span class="pet-emoji">🤖</span>
+                            <div class="pet-name">Cyber Buddy</div>
+                        </div>
+                        <div class="pet-option" data-pet="fairy">
+                            <span class="pet-emoji">🧚</span>
+                            <div class="pet-name">Garden Fairy</div>
+                        </div>
+                        <div class="pet-option" data-pet="wolf">
+                            <span class="pet-emoji">🐺</span>
+                            <div class="pet-name">Moon Wolf</div>
+                        </div>
+                        <div class="pet-option" data-pet="owl">
+                            <span class="pet-emoji">🦉</span>
+                            <div class="pet-name">Wise Owl</div>
+                        </div>
+                        <div class="pet-option" data-pet="cat">
+                            <span class="pet-emoji">🐱</span>
+                            <div class="pet-name">Magic Cat</div>
+                        </div>
+                        <div class="pet-option" data-pet="turtle">
+                            <span class="pet-emoji">🐢</span>
+                            <div class="pet-name">Ancient Turtle</div>
+                        </div>
+                        <div class="pet-option" data-pet="butterfly">
+                            <span class="pet-emoji">🦋</span>
+                            <div class="pet-name">Dream Butterfly</div>
+                        </div>
+                        <div class="pet-option" data-pet="dolphin">
+                            <span class="pet-emoji">🐬</span>
+                            <div class="pet-name">Ocean Friend</div>
+                        </div>
+                        <div class="pet-option" data-pet="penguin">
+                            <span class="pet-emoji">🐧</span>
+                            <div class="pet-name">Arctic Buddy</div>
+                        </div>
+                        <div class="pet-option" data-pet="panda">
+                            <span class="pet-emoji">🐼</span>
+                            <div class="pet-name">Bamboo Panda</div>
+                        </div>
+                        <div class="pet-option" data-pet="lion">
+                            <span class="pet-emoji">🦁</span>
+                            <div class="pet-name">Brave Lion</div>
+                        </div>
+                        <div class="pet-option" data-pet="elephant">
+                            <span class="pet-emoji">🐘</span>
+                            <div class="pet-name">Memory Elephant</div>
+                        </div>
+                        <div class="pet-option" data-pet="monkey">
+                            <span class="pet-emoji">🐵</span>
+                            <div class="pet-name">Clever Monkey</div>
+                        </div>
+                        <div class="pet-option" data-pet="tiger">
+                            <span class="pet-emoji">🐅</span>
+                            <div class="pet-name">Striped Tiger</div>
+                        </div>
+                        <div class="pet-option" data-pet="bear">
+                            <span class="pet-emoji">🐻</span>
+                            <div class="pet-name">Honey Bear</div>
+                        </div>
+                        <div class="pet-option" data-pet="fox">
+                            <span class="pet-emoji">🦊</span>
+                            <div class="pet-name">Clever Fox</div>
+                        </div>
+                        <div class="pet-option" data-pet="rabbit">
+                            <span class="pet-emoji">🐰</span>
+                            <div class="pet-name">Speed Rabbit</div>
+                        </div>
+                        <div class="pet-option" data-pet="koala">
+                            <span class="pet-emoji">🐨</span>
+                            <div class="pet-name">Sleepy Koala</div>
+                        </div>
+                        <div class="pet-option" data-pet="hamster">
+                            <span class="pet-emoji">🐹</span>
+                            <div class="pet-name">Tiny Hamster</div>
+                        </div>
+                        <div class="pet-option" data-pet="crystal">
+                            <span class="pet-emoji">💎</span>
+                            <div class="pet-name">Crystal Spirit</div>
+                        </div>
+                    </div>
+                    
+                    <input type="hidden" name="selected_pet" id="selectedPet">
+                    <button type="submit" class="magic-button">🚀 Begin My Journey 🚀</button>
+                </form>
+            </div>
+        </div>
     </div>
-    <div class="form-group">
-        <label>Password</label>
-        <input type="password" name="password" required>
-    </div>
-    <button type="submit">Login</button>
-    <p>Not registered? <a href="{{ url_for('auth.register') }}">Register here</a></p>
-</form>
-{% endblock %}
+    
+    <script>
+        let selectedPet = null;
+        
+        function switchTab(tab) {
+            // Update tab buttons
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            event.target.classList.add('active');
+            
+            // Update content
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            document.getElementById(tab + '-content').classList.add('active');
+        }
+        
+        // Pet selection logic
+        document.querySelectorAll('.pet-option').forEach(option => {
+            option.addEventListener('click', function() {
+                // Remove previous selection
+                document.querySelectorAll('.pet-option').forEach(opt => opt.classList.remove('selected'));
+                
+                // Select current pet
+                this.classList.add('selected');
+                selectedPet = this.dataset.pet;
+                document.getElementById('selectedPet').value = selectedPet;
+                
+                // Add magical effect
+                this.style.animation = 'bounce 0.6s ease';
+                setTimeout(() => {
+                    this.style.animation = 'bounce 2s infinite';
+                }, 600);
+            });
+        });
+        
+        // Form validation
+        document.getElementById('registerForm').addEventListener('submit', function(e) {
+            if (!selectedPet) {
+                e.preventDefault();
+                showError('Please choose your magical companion first! 🐾');
+                return;
+            }
+            
+            const age = document.querySelector('input[name="age"]').value;
+            if (age < 3 || age > 18) {
+                e.preventDefault();
+                showError('Age must be between 3 and 18 years old! 🎂');
+                return;
+            }
+        });
+        
+        function showError(message) {
+            const errorDiv = document.getElementById('errorMessage');
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+            setTimeout(() => {
+                errorDiv.style.display = 'none';
+            }, 5000);
+        }
+        
+        // Add magical floating animation to stars
+        function animateFloatingElements() {
+            const elements = document.querySelectorAll('.star, .cloud, .sparkle');
+            elements.forEach((el, index) => {
+                el.style.animationDelay = (index * 0.5) + 's';
+                el.style.animationDuration = (4 + Math.random() * 4) + 's';
+            });
+        }
+        
+        animateFloatingElements();
+        
+        // Show flash messages if any
+        {% with messages = get_flashed_messages() %}
+            {% if messages %}
+                {% for message in messages %}
+                    showError('{{ message }}');
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+    </script>
+</body>
+</html>

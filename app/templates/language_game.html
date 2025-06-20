@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🌟 Language Adventure - EduHope</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .language-game-container {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .floating-stars {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            z-index: 1;
+        }
+        
+        .star {
+            position: absolute;
+            color: #fff;
+            animation: twinkle 2s infinite;
+        }
+        
+        @keyframes twinkle {
+            0%, 100% { opacity: 0.3; transform: scale(1); }
+            50% { opacity: 1; transform: scale(1.2); }
+        }
+        
+        .game-header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+            z-index: 10;
+            position: relative;
+        }
+        
+        .game-title {
+            font-size: 2.5rem;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+            margin-bottom: 10px;
+        }
+        
+        .level-indicator {
+            background: rgba(255,255,255,0.2);
+            padding: 10px 20px;
+            border-radius: 25px;
+            display: inline-block;
+            backdrop-filter: blur(10px);
+        }
+        
+        .game-modes {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+            z-index: 10;
+            position: relative;
+        }
+        
+        .game-mode-card {
+            background: rgba(255,255,255,0.95);
+            border-radius: 20px;
+            padding: 25px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            backdrop-filter: blur(10px);
+        }
+        
+        .game-mode-card:hover {
+            transform: translateY(-10px) scale(1.05);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+        }
+        
+        .game-mode-icon {
+            font-size: 3rem;
+            margin-bottom: 15px;
+        }
+        
+        .vocabulary-card { border-left: 5px solid #ff6b6b; }
+        .pronunciation-card { border-left: 5px solid #4ecdc4; }
+        .sentence-card { border-left: 5px solid #45b7d1; }
+        .story-card { border-left: 5px solid #96ceb4; }
+        
+        .game-area {
+            background: rgba(255,255,255,0.95);
+            border-radius: 20px;
+            padding: 30px;
+            margin: 20px 0;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.2);
+            backdrop-filter: blur(10px);
+            display: none;
+            z-index: 10;
+            position: relative;
+        }
+        
+        .word-challenge {
+            text-align: center;
+        }
+        
+        .challenge-word {
+            font-size: 3rem;
+            color: #333;
+            margin: 20px 0;
+            padding: 20px;
+            background: linear-gradient(45deg, #f093fb 0%, #f5576c 100%);
+            border-radius: 15px;
+            color: white;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        .options-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            margin: 20px 0;
+        }
+        
+        .option-btn {
+            padding: 15px 25px;
+            border: none;
+            border-radius: 15px;
+            font-size: 1.2rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: linear-gradient(45deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .option-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+        }
+        
+        .option-btn.correct {
+            background: linear-gradient(45deg, #56ab2f 0%, #a8e6cf 100%);
+            animation: bounce 0.6s ease;
+        }
+        
+        .option-btn.wrong {
+            background: linear-gradient(45deg, #ff416c 0%, #ff4b2b 100%);
+            animation: shake 0.6s ease;
+        }
+        
+        @keyframes bounce {
+            0%, 20%, 60%, 100% { transform: translateY(0); }
+            40% { transform: translateY(-20px); }
+            80% { transform: translateY(-10px); }
+        }
+        
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            10%, 30%, 50%, 70%, 90% { transform: translateX(-10px); }
+            20%, 40%, 60%, 80% { transform: translateX(10px); }
+        }
+        
+        .voice-controls {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin: 20px 0;
+        }
+        
+        .voice-btn {
+            padding: 15px 30px;
+            border: none;
+            border-radius: 50px;
+            font-size: 1.1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .listen-btn {
+            background: linear-gradient(45deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .record-btn {
+            background: linear-gradient(45deg, #ff6b6b 0%, #ee5a52 100%);
+            color: white;
+        }
+        
+        .record-btn.recording {
+            animation: pulse 1s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background: rgba(255,255,255,0.3);
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 20px 0;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(45deg, #56ab2f 0%, #a8e6cf 100%);
+            transition: width 0.3s ease;
+            border-radius: 10px;
+        }
+        
+        .score-display {
+            text-align: center;
+            margin: 20px 0;
+        }
+        
+        .score-item {
+            display: inline-block;
+            margin: 0 15px;
+            padding: 10px 20px;
+            background: rgba(255,255,255,0.2);
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+            color: white;
+        }
+        
+        .pet-encouragement {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(255,255,255,0.95);
+            padding: 15px;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            display: none;
+            z-index: 1000;
+        }
+        
+        .pet-avatar {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            display: inline-block;
+            vertical-align: middle;
+            margin-right: 10px;
+        }
+        
+        .feedback-message {
+            text-align: center;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 15px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            display: none;
+        }
+        
+        .feedback-correct {
+            background: linear-gradient(45deg, #56ab2f 0%, #a8e6cf 100%);
+            color: white;
+        }
+        
+        .feedback-wrong {
+            background: linear-gradient(45deg, #ff416c 0%, #ff4b2b 100%);
+            color: white;
+        }
+        
+        .sentence-builder {
+            margin: 20px 0;
+        }
+        
+        .word-bank {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin: 20px 0;
+            padding: 20px;
+            background: rgba(240, 240, 240, 0.8);
+            border-radius: 15px;
+        }
+        
+        .word-token {
+            padding: 10px 15px;
+            background: linear-gradient(45deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            user-select: none;
+        }
+        
+        .word-token:hover {
+            transform: scale(1.1);
+        }
+        
+        .word-token.used {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .sentence-area {
+            min-height: 80px;
+            border: 3px dashed #667eea;
+            border-radius: 15px;
+            padding: 20px;
+            margin: 20px 0;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            align-items: center;
+        }
+        
+        .placed-word {
+            padding: 10px 15px;
+            background: linear-gradient(45deg, #56ab2f 0%, #a8e6cf 100%);
+            color: white;
+            border-radius: 25px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div class="language-game-container">
+        <div class="floating-stars"></div>
+        
+        <div class="game-header">
+            <h1 class="game-title">🌟 Language Adventure 🌟</h1>
+            <div class="level-indicator">
+                <i class="fas fa-star"></i> Level {{ user.language_level or 1 }} | 
+                <i class="fas fa-coins"></i> {{ user.language_tokens or 0 }} Tokens
+            </div>
+        </div>
+        
+        <div class="progress-bar">
+            <div class="progress-fill" id="progressBar" style="width: 0%"></div>
+        </div>
+        
+        <div class="score-display">
+            <div class="score-item">
+                <i class="fas fa-trophy"></i> Score: <span id="currentScore">0</span>
+            </div>
+            <div class="score-item">
+                <i class="fas fa-fire"></i> Streak: <span id="currentStreak">0</span>
+            </div>
+            <div class="score-item">
+                <i class="fas fa-heart"></i> Lives: <span id="livesLeft">3</span>
+            </div>
+        </div>
+        
+        <div class="game-modes" id="gameModes">
+            <div class="game-mode-card vocabulary-card" onclick="startGame('vocabulary')">
+                <div class="game-mode-icon">📚</div>
+                <h3>Vocabulary Quest</h3>
+                <p>Learn new words with magical meanings!</p>
+            </div>
+            
+            <div class="game-mode-card pronunciation-card" onclick="startGame('pronunciation')">
+                <div class="game-mode-icon">🎤</div>
+                <h3>Pronunciation Palace</h3>
+                <p>Speak like a language wizard!</p>
+            </div>
+            
+            <div class="game-mode-card sentence-card" onclick="startGame('sentence')">
+                <div class="game-mode-icon">🧩</div>
+                <h3>Sentence Builder</h3>
+                <p>Create magical sentences piece by piece!</p>
+            </div>
+            
+            <div class="game-mode-card story-card" onclick="startGame('story')">
+                <div class="game-mode-icon">📖</div>
+                <h3>Story Adventure</h3>
+                <p>Complete epic tales with perfect words!</p>
+            </div>
+        </div>
+        
+        <!-- Vocabulary Game Area -->
+        <div class="game-area" id="vocabularyGame">
+            <div class="word-challenge">
+                <h2>What does this word mean?</h2>
+                <div class="challenge-word" id="challengeWord">Loading...</div>
+                <div class="options-grid" id="optionsGrid">
+                    <!-- Options will be loaded here -->
+                </div>
+            </div>
+        </div>
+        
+        <!-- Pronunciation Game Area -->
+        <div class="game-area" id="pronunciationGame">
+            <div class="word-challenge">
+                <h2>Can you say this word correctly?</h2>
+                <div class="challenge-word" id="pronunciationWord">Loading...</div>
+                <div class="voice-controls">
+                    <button class="voice-btn listen-btn" onclick="playWord()">
+                        <i class="fas fa-volume-up"></i> Listen
+                    </button>
+                    <button class="voice-btn record-btn" onclick="recordPronunciation()">
+                        <i class="fas fa-microphone"></i> Record
+                    </button>
+                </div>
+                <div id="pronunciationFeedback"></div>
+            </div>
+        </div>
+        
+        <!-- Sentence Builder Game Area -->
+        <div class="game-area" id="sentenceGame">
+            <div class="sentence-builder">
+                <h2>Build the perfect sentence!</h2>
+                <div class="challenge-prompt" id="sentencePrompt">Loading...</div>
+                <div class="word-bank" id="wordBank">
+                    <!-- Word tokens will be loaded here -->
+                </div>
+                <div class="sentence-area" id="sentenceArea">
+                    <p style="color: #999; font-style: italic;">Drag words here to build your sentence...</p>
+                </div>
+                <button class="option-btn" onclick="checkSentence()">Check Sentence</button>
+            </div>
+        </div>
+        
+        <!-- Story Game Area -->
+        <div class="game-area" id="storyGame">
+            <div class="word-challenge">
+                <h2>Complete the story!</h2>
+                <div id="storyText">Loading...</div>
+                <div class="options-grid" id="storyOptions">
+                    <!-- Story options will be loaded here -->
+                </div>
+            </div>
+        </div>
+        
+        <div class="feedback-message" id="feedbackMessage"></div>
+        
+        <div class="pet-encouragement" id="petEncouragement">
+            <img src="/static/images/pets/{{ user.pet_type or 'dragon' }}.png" alt="Pet" class="pet-avatar">
+            <span id="petMessage">You're doing great! Keep learning!</span>
+        </div>
+        
+        <div style="text-align: center; margin: 30px 0;">
+            <button class="option-btn" onclick="goHome()">
+                <i class="fas fa-home"></i> Back to Dashboard
+            </button>
+        </div>
+    </div>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <script src="{{ url_for('static', filename='js/language_game.js') }}"></script>
+    <script>
+        // Initialize floating stars
+        function createStars() {
+            const starsContainer = document.querySelector('.floating-stars');
+            for (let i = 0; i < 50; i++) {
+                const star = document.createElement('div');
+                star.className = 'star';
+                star.innerHTML = '⭐';
+                star.style.left = Math.random() * 100 + '%';
+                star.style.top = Math.random() * 100 + '%';
+                star.style.animationDelay = Math.random() * 2 + 's';
+                star.style.fontSize = (Math.random() * 10 + 10) + 'px';
+                starsContainer.appendChild(star);
+            }
+        }
+        
+        // Show pet encouragement
+        function showPetEncouragement(message) {
+            const petDiv = document.getElementById('petEncouragement');
+            const petMessage = document.getElementById('petMessage');
+            petMessage.textContent = message;
+            petDiv.style.display = 'block';
+            
+            setTimeout(() => {
+                petDiv.style.display = 'none';
+            }, 3000);
+        }
+        
+        // Go back to dashboard
+        function goHome() {
+            window.location.href = '/dashboard';
+        }
+        
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            createStars();
+            // Show welcome message from pet
+            setTimeout(() => {
+                showPetEncouragement("Ready for a language adventure? Let's learn together! 🌟");
+            }, 1000);
+        });
+    </script>
+</body>
+</html>
