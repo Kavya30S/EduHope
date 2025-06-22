@@ -1,11 +1,11 @@
 from flask import Blueprint, render_template, request, jsonify, session
 from flask_login import login_required, current_user
-from app.models.emotion import EmotionData
+from app.models.emotion import EmotionalState
 from app.models.user import User
 from app.models.pet import Pet
 from app.services.sentiment_service import SentimentService
 from app.services.llm_service import LLMService
-from app.database import db
+from app import db
 import json
 from datetime import datetime, timedelta
 import random
@@ -18,9 +18,9 @@ llm_service = LLMService()
 @login_required
 def emotion_check():
     """Daily emotion check-in interface"""
-    recent_emotions = EmotionData.query.filter_by(
+    recent_emotions = EmotionalState.query.filter_by(
         user_id=current_user.id
-    ).order_by(EmotionData.timestamp.desc()).limit(7).all()
+    ).order_by(EmotionalState.timestamp.desc()).limit(7).all()
     
     return render_template('emotion_check.html', 
                          recent_emotions=recent_emotions)
@@ -31,7 +31,7 @@ def record_emotion():
     """Record user's emotional state"""
     data = request.get_json()
     
-    emotion_entry = EmotionData(
+    emotion_entry = EmotionalState(
         user_id=current_user.id,
         emotion_type=data.get('emotion'),
         intensity=data.get('intensity', 5),
@@ -68,10 +68,10 @@ def mood_tracker():
     """Comprehensive mood tracking dashboard"""
     # Get mood data for the last 30 days
     thirty_days_ago = datetime.utcnow() - timedelta(days=30)
-    mood_data = EmotionData.query.filter(
-        EmotionData.user_id == current_user.id,
-        EmotionData.timestamp >= thirty_days_ago
-    ).order_by(EmotionData.timestamp).all()
+    mood_data = EmotionalState.query.filter(
+        EmotionalState.user_id == current_user.id,
+        EmotionalState.timestamp >= thirty_days_ago
+    ).order_by(EmotionalState.timestamp).all()
     
     # Analyze patterns
     mood_patterns = analyze_mood_patterns(mood_data)
@@ -652,10 +652,10 @@ def store_counselor_conversation(user_id, message, response):
 def get_recent_emotional_state(user_id):
     """Get user's recent emotional state"""
     recent_date = datetime.utcnow() - timedelta(days=3)
-    return EmotionData.query.filter(
-        EmotionData.user_id == user_id,
-        EmotionData.timestamp >= recent_date
-    ).order_by(EmotionData.timestamp.desc()).limit(10).all()
+    return EmotionalState.query.filter(
+        EmotionalState.user_id == user_id,
+        EmotionalState.timestamp >= recent_date
+    ).order_by(EmotionalState.timestamp.desc()).limit(10).all()
 
 def get_writing_encouragement():
     """Get encouraging message for writing"""

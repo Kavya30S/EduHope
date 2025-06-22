@@ -20,23 +20,24 @@ db = SQLAlchemy(app)
 login_manager = LoginManager(app)
 login_manager.login_view = 'auth.login'
 login_manager.login_message = "🌟 Let's continue your magical learning journey!"
-socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
+socketio = SocketIO(app, cors_allowed_origins="*")
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Import models and routes
-from models.user import User, LearningSession, UserProgress
-from models.pet import Pet, PetAccessory, UserPet
-from models.lesson import Lesson, Quiz, UserQuizAttempt
-from models.achievement import Achievement, UserAchievement
-from routes import auth, education, support, social, teacher, pet_companion, storytelling, language_games
-from services.llm_service import LLMService
-from services.voice_service import VoiceService
-from services.sentiment_service import SentimentService
-from assessment_games.knowledge_assessment import KnowledgeAssessment
-from assessment_games.emotional_assessment import EmotionalAssessment
+from app.models.user import User, LearningSession,UserProgress
+from app.models.pet import Pet
+from app.models.pet_accessory import PetAccessory, UserPetAccessory
+from app.models.lesson import Lesson, UserProgress, LessonFeedback
+from app.models.achievement import Achievement, UserAchievement
+from app.routes import auth, education, support, social, teacher, pet_companion, storytelling, language_games
+from app.services.llm_service import LLMService
+from app.services.voice_service import VoiceService
+from app.services.sentiment_service import SentimentService
+from app.assesment_games.knowledge_assesment import KnowledgeAssessmentGame
+from app.assesment_games.emotional_assesment import EmotionalAssessmentGame
 
 # Register blueprints
 app.register_blueprint(auth.bp)
@@ -52,8 +53,8 @@ app.register_blueprint(language_games.bp)
 llm_service = LLMService()
 voice_service = VoiceService()
 sentiment_service = SentimentService()
-knowledge_assessment = KnowledgeAssessment()
-emotional_assessment = EmotionalAssessment()
+knowledge_assessment = KnowledgeAssessmentGame()
+emotional_assessment = EmotionalAssessmentGame()
 
 @login_manager.user_loader
 def load_user(user_id):
@@ -186,7 +187,7 @@ def index():
 @login_required
 def dashboard():
     """Personalized dashboard with real-time adaptations"""
-    user_pet = UserPet.query.filter_by(user_id=current_user.id, is_active=True).first()
+    user_pet = UserPetAccessory.query.filter_by(user_id=current_user.id, is_active=True).first()
     recent_achievements = UserAchievement.query.filter_by(user_id=current_user.id)\
                             .order_by(UserAchievement.earned_date.desc()).limit(3).all()
     

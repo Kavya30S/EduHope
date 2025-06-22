@@ -8,8 +8,8 @@ from .voice_service import VoiceService
 from .translation_service import TranslationService
 from .sentiment_service import SentimentService
 from .moderation_service import ModerationService
-from .adaptive_learning_service import AdaptiveLearningService
-from .analytics_service import AnalyticsService
+from .adaptive_learning_services import AdaptiveLearningService
+from .analytic_services import AnalyticsService
 from .pet_ai_service import PetAIService
 
 __all__ = [

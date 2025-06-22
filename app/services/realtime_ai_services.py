@@ -90,8 +90,8 @@ class RealtimeAIService:
                     return True
                     
         except Exception as e:
-            self.logger.error(f"Adaptation error: {e}")
-            return {'type': 'no_change'}
+                    self.logger.error(f"User model initialization error: {e}")
+                    return False
     
     def _generate_personalized_response(self, user_id, interaction_data):
         """Generate personalized response using user's model"""
@@ -428,9 +428,7 @@ class RealtimeAIService:
             'message': "You're doing great! Keep exploring! 🌟",
             'encouragement': "Every step forward is progress! 💪",
             'suggestion': "Try the next challenge when you're ready!"
-        } as e:
-            self.logger.error(f"User model initialization error: {e}")
-            return False
+        }
     
     def process_user_interaction(self, user_id, interaction_data):
         """Process and learn from user interaction in real-time"""
@@ -650,4 +648,6 @@ class RealtimeAIService:
                 'style_weights': {k: v['weight'] for k, v in user_model['learning_style_weights'].items()}
             }
             
-        except Exception
+        except Exception as e:
+            self.logger.error(f"Adaptation error: {e}")
+            return {'type': 'no_change'}

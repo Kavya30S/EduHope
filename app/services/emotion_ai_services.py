@@ -6,7 +6,7 @@ import cv2
 import mediapipe as mp
 from transformers import pipeline, AutoTokenizer, AutoModelForSequenceClassification
 import torch
-from app.models.emotion import EmotionLog
+from app.models.emotion import EmotionalState
 from app.models.user import User
 from app import db
 import logging

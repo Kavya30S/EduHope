@@ -3,7 +3,7 @@ from flask_login import login_user, logout_user, login_required, current_user
 from werkzeug.security import check_password_hash, generate_password_hash
 from app.models.user import User, db
 from app.models.pet import Pet
-from app.services.sentiment_service import analyze_emotion
+from app.services.sentiment_service import SentimentService
 import random
 
 auth_bp = Blueprint('auth', __name__)
@@ -56,7 +56,7 @@ def login():
             else:
                 # Update user's last login and mood
                 if 'mood_score' in data:
-                    emotion_result = analyze_emotion(data.get('mood_text', ''))
+                    emotion_result = SentimentService(data.get('mood_text', ''))
                     user.current_mood = emotion_result['emotion']
                     user.mood_score = emotion_result['confidence']
                 
@@ -214,7 +214,7 @@ def quick_mood_check():
     mood_text = data.get('mood_text', '')
     mood_emoji = data.get('mood_emoji', '😊')
     
-    emotion_result = analyze_emotion(mood_text)
+    emotion_result = SentimentService(mood_text)
     
     # Update user's current mood
     current_user.current_mood = emotion_result['emotion']

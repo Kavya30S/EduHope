@@ -19,6 +19,11 @@ class Lesson(db.Model):
     estimated_time = db.Column(db.Integer, default=15)  # minutes
     prerequisite_lessons = db.Column(db.Text)  # JSON array of lesson IDs
     multimedia_content = db.Column(db.Text)  # JSON for videos, images, sounds
+    as_visuals = db.Column(db.Boolean, default=False)
+    has_audio = db.Column(db.Boolean, default=False)
+    has_interactive_elements = db.Column(db.Boolean, default=False)
+    quiz_questions = db.Column(db.Text)  # JSON string
+    topics = db.Column(db.Text)
     
     # AI Personalization fields
     adaptation_data = db.Column(db.Text)  # JSON for AI adaptation insights

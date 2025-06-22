@@ -381,12 +381,27 @@ class LearningSession(db.Model):
     learning_style_used = db.Column(db.String(20))  # visual, auditory, kinesthetic
     timestamp = db.Column(db.DateTime, default=datetime.now)
     session_duration = db.Column(db.Integer)  # Duration in seconds
+    level = db.Column(db.Integer, default=1)
+    experience_points = db.Column(db.Integer, default=0)
+    completed_lessons = db.Column(db.Integer, default=0)
+    total_study_time = db.Column(db.Integer, default=0)  # in minutes
+    streak_days = db.Column(db.Integer, default=0)
+    learning_patterns = db.Column(db.Text) 
     
     # Analysis fields
     attention_level = db.Column(db.String(20))  # high, medium, low
     engagement_score = db.Column(db.Float)  # 0.0 to 1.0
     help_requests = db.Column(db.Integer, default=0)
     completion_status = db.Column(db.String(20))  # completed, incomplete, skipped
+
+    def calculate_learning_streak(self):
+        """Calculate current learning streak"""
+        # This would check consecutive days of activity
+        # For now, return a simple calculation
+        recent_sessions = LearningSession.query.filter_by(user_id=self.id)\
+            .filter(LearningSession.timestamp >= datetime.utcnow() - timedelta(days=30))\
+            .count()
+        return min(30, recent_sessions)
     
     def __init__(self, user_id, action, content_type, **kwargs):
         self.user_id = user_id

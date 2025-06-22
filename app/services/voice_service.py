@@ -43,6 +43,7 @@ class VoiceService:
         
     def initialize_voice_services(self):
         """Initialize speech recognition and synthesis services"""
+        global SPEECH_AVAILABLE
         if not SPEECH_AVAILABLE:
             logger.warning("Speech libraries not available")
             return
