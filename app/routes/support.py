@@ -1,11 +1,14 @@
-from flask import Blueprint, render_template, request, jsonify, session
+from flask import Blueprint, render_template, request, jsonify, session,current_app
 from flask_login import login_required, current_user
+from app.models import CounselorConversation,JournalEntry
 from app.models.emotion import EmotionalState
 from app.models.user import User
 from app.models.pet import Pet
 from app.services.sentiment_service import SentimentService
 from app.services.llm_service import LLMService
 from app import db
+from collections import Counter
+import statistics
 import json
 from datetime import datetime, timedelta
 import random
@@ -607,7 +610,36 @@ def generate_emotional_pet_activities(pet, recent_emotions):
     
     return activities.get(primary_emotion, standard_pet_activities())
 
+def get_dominant_recent_emotion(recent_emotions):
+    """
+    Determine the dominant emotion from a list of recent emotions.
+    
+    Args:
+        recent_emotions (list): List of emotion strings or dictionaries containing emotion data.
+    
+    Returns:
+        str: The dominant emotion or 'neutral' if no dominant emotion is found.
+    """
+    if not recent_emotions:
+        return 'neutral'
+    
+    # Extract emotions (handle both string and dict inputs)
+    emotions = []
+    for emotion in recent_emotions:
+        if isinstance(emotion, dict) and 'mood' in emotion:
+            emotions.append(emotion['mood'].lower())
+        elif isinstance(emotion, str):
+            emotions.append(emotion.lower())
+    
+    if not emotions:
+        return 'neutral'
+    
+    # Get the most common emotion
+    most_common = Counter(emotions).most_common(1)
+    return most_common[0][0] if most_common else 'neutral'
+
 def standard_pet_activities():
+
     """Standard pet activities for neutral emotional states"""
     return [
         {
@@ -623,6 +655,112 @@ def standard_pet_activities():
             'benefit': 'Enhances bond and cognitive engagement'
         }
     ]
+
+def get_counselor_history(user_id):
+    """
+    Retrieve conversation history for a specific user from the database.
+    
+    Args:
+        user_id (int): The ID of the user whose conversation history is requested.
+    
+    Returns:
+        list: A list of conversation entries, each containing user message and counselor response.
+    """
+    try:
+        # Query the database for conversation history, ordered by timestamp
+        conversations = CounselorConversation.query.filter_by(user_id=user_id).order_by(CounselorConversation.timestamp.asc()).all()
+        
+        # Format the conversation history
+        history = [
+            {
+                'user_message': convo.user_message,
+                'counselor_response': convo.counselor_response,
+                'timestamp': convo.timestamp.strftime('%Y-%m-%d %H:%M:%S')
+            }
+            for convo in conversations
+        ]
+        
+        return history
+    
+    except Exception as e:
+        current_app.logger.error(f"Error retrieving counselor history for user {user_id}: {str(e)}")
+        return []
+    
+def get_journal_entries(user_id):
+    """
+    Retrieve journal entries for a specific user from the database.
+    
+    Args:
+        user_id (int): The ID of the user whose journal entries are requested.
+    
+    Returns:
+        list: A list of journal entries, each containing entry content and metadata.
+    """
+    try:
+        # Query the database for journal entries, ordered by timestamp
+        entries = JournalEntry.query.filter_by(user_id=user_id).order_by(JournalEntry.timestamp.desc()).all()
+        
+        # Format the journal entries
+        journal_history = [
+            {
+                'id': entry.id,
+                'content': entry.content,
+                'timestamp': entry.timestamp.strftime('%Y-%m-%d %H:%M:%S'),
+                'mood': entry.mood,
+                'title': entry.title
+            }
+            for entry in entries
+        ]
+        
+        return journal_history
+    
+    except Exception as e:
+        current_app.logger.error(f"Error retrieving journal entries for user {user_id}: {str(e)}")
+        return []
+
+def get_recent_counselor_context(user_id):
+    """
+    Retrieve recent counselor conversation context for a specific user.
+    
+    Args:
+        user_id (int): The ID of the user whose recent conversation context is requested.
+    
+    Returns:
+        dict: Recent conversation context including messages and responses from the last 7 days.
+    """
+    try:
+        # Define time window for recent context (e.g., last 7 days)
+        time_threshold = datetime.utcnow() - timedelta(days=7)
+        
+        # Query recent conversations
+        recent_conversations = CounselorConversation.query.filter(
+            CounselorConversation.user_id == user_id,
+            CounselorConversation.timestamp >= time_threshold
+        ).order_by(CounselorConversation.timestamp.asc()).all()
+        
+        # Format context
+        context = [
+            {
+                'user_message': convo.user_message,
+                'counselor_response': convo.counselor_response,
+                'timestamp': convo.timestamp.strftime('%Y-%m-%d %H:%M:%S')
+            }
+            for convo in recent_conversations
+        ]
+        
+        return {
+            'recent_messages': context,
+            'message_count': len(context),
+            'last_interaction': context[-1]['timestamp'] if context else None
+        }
+    
+    except Exception as e:
+        current_app.logger.error(f"Error retrieving recent counselor context for user {user_id}: {str(e)}")
+        return {
+            'recent_messages': [],
+            'message_count': 0,
+            'last_interaction': None
+        }
 
 # Database helper functions
 def save_journal_entry_to_db(journal_entry):
@@ -668,3 +806,160 @@ def get_writing_encouragement():
     ]
     
     return random.choice(encouragements)
+
+def get_most_common_emotion(mood_data):
+    """
+    Identify the most frequently occurring emotion in the mood data.
+    
+    Args:
+        mood_data (list): List of mood entries, each containing a 'mood' field.
+    
+    Returns:
+        str: The most common emotion or 'None' if no data.
+    """
+    if not mood_data:
+        return 'None'
+    
+    emotions = [entry['mood'] for entry in mood_data if entry['mood']]
+    if not emotions:
+        return 'None'
+    
+    return Counter(emotions).most_common(1)[0][0]
+
+def get_emotion_frequency(mood_data):
+    """
+    Calculate the frequency of each emotion in the mood data.
+    
+    Args:
+        mood_data (list): List of mood entries, each containing a 'mood' field.
+    
+    Returns:
+        dict: Dictionary with emotions as keys and their frequencies as values.
+    """
+    emotions = [entry['mood'] for entry in mood_data if entry['mood']]
+    return dict(Counter(emotions))
+
+def get_intensity_trends(mood_data):
+    """
+    Analyze trends in mood intensity over time (assuming moods have associated intensity).
+    
+    Args:
+        mood_data (list): List of mood entries, each containing 'mood', 'timestamp', and optional 'intensity'.
+    
+    Returns:
+        dict: Trends including average intensity and change over time.
+    """
+    if not mood_data:
+        return {'average_intensity': 0, 'trend': 'No data'}
+    
+    # Define intensity mapping for common emotions (example values)
+    intensity_map = {
+        'happy': 8, 'excited': 9, 'content': 7,
+        'neutral': 5,
+        'sad': 3, 'angry': 4, 'anxious': 4,
+        'depressed': 2
+    }
+    
+    intensities = []
+    for entry in mood_data:
+        if entry['mood'] and entry['mood'].lower() in intensity_map:
+            intensities.append(intensity_map[entry['mood'].lower()])
+    
+    if not intensities:
+        return {'average_intensity': 0, 'trend': 'No intensity data'}
+    
+    avg_intensity = statistics.mean(intensities)
+    
+    # Calculate trend (simplified: compare first half to second half)
+    mid_point = len(intensities) // 2
+    if mid_point > 0:
+        first_half = statistics.mean(intensities[:mid_point])
+        second_half = statistics.mean(intensities[mid_point:])
+        trend = 'improving' if second_half > first_half else 'declining' if second_half < first_half else 'stable'
+    else:
+        trend = 'insufficient data'
+    
+    return {
+        'average_intensity': round(avg_intensity, 2),
+        'trend': trend
+    }
+
+def get_time_patterns(mood_data):
+    """
+    Analyze temporal patterns in mood data (e.g., time of day patterns).
+    
+    Args:
+        mood_data (list): List of mood entries with 'mood' and 'timestamp' fields.
+    
+    Returns:
+        dict: Patterns including mood distribution by time of day.
+    """
+    if not mood_data:
+        return {'time_patterns': {}}
+    
+    time_patterns = {
+        'morning': Counter(),  # 6AM-12PM
+        'afternoon': Counter(),  # 12PM-6PM
+        'evening': Counter(),  # 6PM-12AM
+        'night': Counter()  # 12AM-6AM
+    }
+    
+    for entry in mood_data:
+        if entry['mood'] and entry['timestamp']:
+            try:
+                # Parse timestamp string to datetime
+                timestamp = datetime.strptime(entry['timestamp'], '%Y-%m-%d %H:%M:%S')
+                hour = timestamp.hour
+                
+                if 6 <= hour < 12:
+                    time_patterns['morning'][entry['mood']] += 1
+                elif 12 <= hour < 18:
+                    time_patterns['afternoon'][entry['mood']] += 1
+                elif 18 <= hour < 24:
+                    time_patterns['evening'][entry['mood']] += 1
+                else:
+                    time_patterns['night'][entry['mood']] += 1
+            except ValueError:
+                continue
+    
+    # Convert Counter objects to regular dictionaries for JSON compatibility
+    return {
+        'time_patterns': {
+            period: dict(counter) for period, counter in time_patterns.items()
+        }
+    }
+
+def get_improvement_suggestions(mood_data):
+    """
+    Provide suggestions for improvement based on mood patterns.
+    
+    Args:
+        mood_data (list): List of mood entries with 'mood' field.
+    
+    Returns:
+        list: List of improvement suggestions based on mood patterns.
+    """
+    if not mood_data:
+        return []
+    
+    emotions = [entry['mood'].lower() for entry in mood_data if entry['mood']]
+    negative_emotions = {'sad', 'angry', 'anxious', 'depressed'}
+    suggestions = []
+    
+    # Count negative emotions
+    negative_count = sum(1 for emotion in emotions if emotion in negative_emotions)
+    
+    if negative_count / len(emotions) > 0.5:  # More than 50% negative emotions
+        suggestions.extend([
+            "Consider practicing mindfulness or meditation to manage negative emotions.",
+            "Try journaling to express and process your feelings.",
+            "Reach out to a trusted friend or professional for support."
+        ])
+    
+    if 'happy' in emotions or 'content' in emotions:
+        suggestions.append("Continue engaging in activities that promote positive emotions.")
+    
+    if 'anxious' in emotions:
+        suggestions.append("Try deep breathing exercises or progressive muscle relaxation.")
+    
+    return suggestions

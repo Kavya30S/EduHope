@@ -3,7 +3,7 @@ import json
 from datetime import datetime
 from typing import Dict, List, Any
 from app.services.realtime_ai_services import RealtimeAIService
-from app.services.analytics_service import AnalyticsService
+from app.services.analytic_services import AnalyticsService
 
 class KnowledgeAssessmentGame:
     """Interactive knowledge assessment through engaging games"""

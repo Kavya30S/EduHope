@@ -46,7 +46,7 @@ class EmotionalAssessmentGame:
             },
             {
                 'id': 'sadness_support',
-                'title': '🐉 The Dragon's Rainy Day',
+                'title': "🐉 The Dragon's Rainy Day",
                 'scenario': 'A young dragon feels sad because it rained and cancelled the sky parade. What could help the dragon feel better?',
                 'options': [
                     {'text': 'Plan an indoor treasure hunt instead', 'emotion_indicators': ['adaptability', 'creativity'], 'points': 9},

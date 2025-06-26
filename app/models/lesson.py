@@ -4,6 +4,78 @@ import json
 
 db = SQLAlchemy()
 
+class Subject(db.Model):
+    """
+    Database model for storing subjects of lessons.
+    """
+    __tablename__ = 'subjects'
+
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False, unique=True)
+    description = db.Column(db.Text, nullable=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+
+    # Define relationship with Lesson model
+    lessons = db.relationship('Lesson', backref='subject', lazy=True)
+
+    def __init__(self, name, description=None):
+        """
+        Initialize a new subject.
+        
+        Args:
+            name (str): The name of the subject.
+            description (str, optional): A description of the subject.
+        """
+        self.name = name
+        self.description = description
+
+    def __repr__(self):
+        return f'<Subject {self.name}>'
+
+class UserLessonProgress(db.Model):
+    """
+    Database model for tracking user progress in lessons.
+    """
+    __tablename__ = 'user_lesson_progress'
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    lesson_id = db.Column(db.Integer, db.ForeignKey('lessons.id'), nullable=False)
+    score = db.Column(db.Float, nullable=True)  # Score out of 100
+    attempts = db.Column(db.Integer, default=1)
+    time_spent = db.Column(db.Integer, nullable=True)  # Time spent in seconds
+    completed = db.Column(db.Boolean, default=False)
+    completed_at = db.Column(db.DateTime, nullable=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+
+    # Define relationships
+    user = db.relationship('User', backref=db.backref('lesson_progress', lazy=True))
+    lesson = db.relationship('Lesson', backref=db.backref('progress', lazy=True))
+
+    def __init__(self, user_id, lesson_id, score=None, attempts=1, time_spent=None, completed=False):
+        """
+        Initialize a new user lesson progress entry.
+        
+        Args:
+            user_id (int): The ID of the user.
+            lesson_id (int): The ID of the lesson.
+            score (float, optional): The score achieved in the lesson.
+            attempts (int): Number of attempts made.
+            time_spent (int, optional): Time spent on the lesson in seconds.
+            completed (bool): Whether the lesson was completed.
+        """
+        self.user_id = user_id
+        self.lesson_id = lesson_id
+        self.score = score
+        self.attempts = attempts
+        self.time_spent = time_spent
+        self.completed = completed
+        if completed:
+            self.completed_at = datetime.utcnow()
+
+    def __repr__(self):
+        return f'<UserLessonProgress user_id={self.user_id}, lesson_id={self.lesson_id}, score={self.score}>'
+
 class Lesson(db.Model):
     __tablename__ = 'lessons'
     

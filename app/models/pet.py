@@ -1,6 +1,7 @@
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
 import json
+from app.models.user import User
 
 db = SQLAlchemy()
 
@@ -29,7 +30,7 @@ class Pet(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
     # Relationships
-    user = db.relationship('User', backref=db.backref('pets', lazy=True))
+    # user = db.relationship('User', backref=db.backref('pets', lazy=True))
     
     @staticmethod
     def get_available_pets():
@@ -375,3 +376,5 @@ class Pet(db.Model):
             'mood': self.get_mood(),
             'created_at': self.created_at.isoformat() if self.created_at else None
         }
+    
+    user = db.relationship('User', backref=db.backref('pets', lazy=True))

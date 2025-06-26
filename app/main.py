@@ -40,14 +40,14 @@ from app.assesment_games.knowledge_assesment import KnowledgeAssessmentGame
 from app.assesment_games.emotional_assesment import EmotionalAssessmentGame
 
 # Register blueprints
-app.register_blueprint(auth.bp)
-app.register_blueprint(education.bp)
-app.register_blueprint(support.bp)
-app.register_blueprint(social.bp)
-app.register_blueprint(teacher.bp)
-app.register_blueprint(pet_companion.bp)
-app.register_blueprint(storytelling.bp)
-app.register_blueprint(language_games.bp)
+app.register_blueprint(auth.auth_bp)
+app.register_blueprint(education.education_bp)
+app.register_blueprint(support.support_bp)
+app.register_blueprint(social.social_bp)
+app.register_blueprint(teacher.teacher_bp)
+app.register_blueprint(pet_companion.pet_bp)
+app.register_blueprint(storytelling.storytelling_bp)
+app.register_blueprint(language_games.language_games_bp)
 
 # Initialize services
 llm_service = LLMService()
@@ -341,7 +341,7 @@ def internal_error(error):
                          suggestion="Don't worry! Our coding wizards are fixing it. Try again in a moment!"), 500
 
 # Database initialization
-@app.before_first_request
+# @app.before_first_request 
 def create_tables():
     """Initialize database tables and sample data"""
     db.create_all()

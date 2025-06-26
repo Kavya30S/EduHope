@@ -10,12 +10,13 @@ from app.services.sentiment_service import SentimentService
 from app.services.adaptive_learning_services import AdaptiveLearningService
 from app import db
 import re  # ADD THIS
-from collections import Counter 
+from collections import Counter,defaultdict
 from typing import List, Dict, Any 
 import random
 import json
 from datetime import datetime
 import logging
+import statistics
 
 logger = logging.getLogger(__name__)
 

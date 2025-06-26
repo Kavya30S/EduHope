@@ -3,6 +3,73 @@ from app import db
 from sqlalchemy.orm import relationship
 import json
 
+class StoryContribution(db.Model):
+    """
+    Database model for storing individual contributions to a collaborative story.
+    """
+    __tablename__ = 'story_contributions'
+
+    id = db.Column(db.Integer, primary_key=True)
+    story_id = db.Column(db.Integer, db.ForeignKey('stories.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    content = db.Column(db.Text, nullable=False)
+    order = db.Column(db.Integer, nullable=False)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+
+    # Define relationships
+    story = db.relationship('Story', backref=db.backref('contributions', lazy=True))
+    user = db.relationship('User', backref=db.backref('story_contributions', lazy=True))
+
+    def __init__(self, story_id, user_id, content, order):
+        """
+        Initialize a new story contribution.
+        
+        Args:
+            story_id (int): The ID of the story.
+            user_id (int): The ID of the user making the contribution.
+            content (str): The content of the contribution.
+            order (int): The order of this contribution in the story.
+        """
+        self.story_id = story_id
+        self.user_id = user_id
+        self.content = content
+        self.order = order
+
+    def __repr__(self):
+        return f'<StoryContribution story_id={self.story_id}, user_id={self.user_id}, order={self.order}>'
+
+class StoryVote(db.Model):
+    """
+    Database model for storing votes on completed stories.
+    """
+    __tablename__ = 'story_votes'
+
+    id = db.Column(db.Integer, primary_key=True)
+    story_id = db.Column(db.Integer, db.ForeignKey('stories.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    vote_type = db.Column(db.String(20), nullable=False)  # e.g., 'like' or 'love'
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+
+    # Define relationships
+    story = db.relationship('Story', backref=db.backref('story_votes', lazy=True))
+    user = db.relationship('User', backref=db.backref('story_votes', lazy=True))
+
+    def __init__(self, story_id, user_id, vote_type):
+        """
+        Initialize a new story vote.
+        
+        Args:
+            story_id (int): The ID of the story being voted on.
+            user_id (int): The ID of the user casting the vote.
+            vote_type (str): The type of vote ('like' or 'love').
+        """
+        self.story_id = story_id
+        self.user_id = user_id
+        self.vote_type = vote_type
+
+    def __repr__(self):
+        return f'<StoryVote story_id={self.story_id}, user_id={self.user_id}, vote_type={self.vote_type}>'
+
 class Story(db.Model):
     __tablename__ = 'stories'
     

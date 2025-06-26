@@ -316,6 +316,85 @@ class EmotionalState(db.Model):
             'mood_patterns': self.get_mood_patterns(),
             'last_check_in': self.last_check_in.isoformat() if self.last_check_in else None
         }
+    
+class EmotionLog(db.Model):
+    """
+    Database model for storing user emotional logs.
+    """
+    __tablename__ = 'emotion_logs'
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    emotion_type = db.Column(db.String(50), nullable=False)  # e.g., 'assessment', 'creative_expression', 'daily_checkin'
+    intensity = db.Column(db.Float, nullable=False)  # Emotional intensity (e.g., 1-10 scale)
+    context = db.Column(db.String(100), nullable=False)  # Context of the emotion (e.g., 'initial_assessment', 'story_creation', 'daily_mood')
+    ai_analysis = db.Column(db.Text)  # JSON string of AI analysis results
+    learning_recommendations = db.Column(db.Text)  # JSON string of learning recommendations
+    metainfo = db.Column(db.Text)  # JSON string of additional metadata
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+
+    # Define relationship with User model
+    user = db.relationship('User', backref=db.backref('emotion_logs', lazy=True))
+
+    def __init__(self, user_id, emotion_type, intensity, context, ai_analysis=None, learning_recommendations=None, metainfo=None):
+        """
+        Initialize a new emotion log entry.
+        
+        Args:
+            user_id (int): The ID of the user.
+            emotion_type (str): Type of emotional interaction (e.g., 'assessment', 'daily_checkin').
+            intensity (float): Emotional intensity (e.g., 1-10 scale).
+            context (str): Context of the emotional interaction (e.g., 'initial_assessment').
+            ai_analysis (dict, optional): AI analysis results as a dictionary.
+            learning_recommendations (dict, optional): Learning recommendations as a dictionary.
+            metadata (dict, optional): Additional metadata as a dictionary.
+        """
+        self.user_id = user_id
+        self.emotion_type = emotion_type
+        self.intensity = intensity
+        self.context = context
+        self.ai_analysis = json.dumps(ai_analysis) if ai_analysis else None
+        self.learning_recommendations = json.dumps(learning_recommendations) if learning_recommendations else None
+        self.metadata = json.dumps(metainfo) if metainfo else None
+
+    def get_ai_analysis(self):
+        """
+        Get AI analysis as a dictionary.
+        
+        Returns:
+            dict: Parsed AI analysis or empty dict if none.
+        """
+        try:
+            return json.loads(self.ai_analysis) if self.ai_analysis else {}
+        except json.JSONDecodeError:
+            return {}
+
+    def get_learning_recommendations(self):
+        """
+        Get learning recommendations as a dictionary.
+        
+        Returns:
+            dict: Parsed learning recommendations or empty dict if none.
+        """
+        try:
+            return json.loads(self.learning_recommendations) if self.learning_recommendations else {}
+        except json.JSONDecodeError:
+            return {}
+
+    def get_metadata(self):
+        """
+        Get metadata as a dictionary.
+        
+        Returns:
+            dict: Parsed metadata or empty dict if none.
+        """
+        try:
+            return json.loads(self.metadata) if self.metadata else {}
+        except json.JSONDecodeError:
+            return {}
+
+    def __repr__(self):
+        return f'<EmotionLog user_id={self.user_id}, emotion_type={self.emotion_type}, context={self.context}, created_at={self.created_at}>'
 
 
 class SupportSession(db.Model):
