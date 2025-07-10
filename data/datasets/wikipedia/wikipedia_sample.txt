@@ -1,0 +1,152 @@
+# Wikipedia Sample Dataset for EduHope
+# Format: [Title]|[Content]
+
+[Sun]|The Sun is a star at the center of our solar system. It provides light and heat, making life on Earth possible. It is mostly made of hydrogen and helium.
+
+[Moon]|The Moon is Earth's only natural satellite. It affects tides and has phases like full moon and new moon. Astronauts landed on it in 1969 during the Apollo 11 mission.
+
+[Earth]|Earth is the third planet from the Sun. It has water, air, and land, supporting diverse life forms. It is the only known planet with human life.
+
+[Mars]|Mars is the fourth planet, known as the Red Planet due to its iron-rich soil. It has the largest volcano and canyon in the solar system.
+
+[Jupiter]|Jupiter is the fifth planet and the largest in our solar system. It has a Great Red Spot, a storm larger than Earth, and many moons.
+
+[Saturn]|Saturn is known for its beautiful rings made of ice and dust. It is the sixth planet and has a low density, floating in water if a big enough ocean existed.
+
+[Venus]|Venus is the second planet, similar in size to Earth. It has a thick atmosphere and extreme heat, making it the hottest planet.
+
+[Mercury]|Mercury is the closest planet to the Sun. It has no atmosphere and extreme temperature changes between day and night.
+
+[Uranus]|Uranus is the seventh planet, tilted on its side. It has a faint ring system and a pale blue color due to methane.
+
+[Neptune]|Neptune is the eighth planet, known for its deep blue color and strong winds. It was discovered in 1846.
+
+[Water Cycle]|The water cycle describes how water moves from oceans to air and back. It includes evaporation, condensation, and precipitation.
+
+[Photosynthesis]|Photosynthesis is how plants make food using sunlight, water, and carbon dioxide. It produces oxygen for us to breathe.
+
+[Rainforest]|Rainforests are dense forests with high rainfall. They are home to many animals and plants, like monkeys and orchids.
+
+[Desert]|Deserts are dry areas with little rain. Animals like camels live there, adapted to store water.
+
+[Ocean]|Oceans cover most of Earth’s surface. They are home to fish, whales, and coral reefs.
+
+[Mountain]|Mountains are high landforms created by tectonic plates. People climb them for adventure.
+
+[River]|Rivers are flowing water bodies that often start in mountains and end in seas.
+
+[Lake]|Lakes are large bodies of water surrounded by land. Some are home to fish and birds.
+
+[Volcano]|Volcanoes are mountains that can erupt with lava. They shape the Earth’s surface.
+
+[Earthquake]|Earthquakes are sudden shakes of the ground caused by moving tectonic plates.
+
+[Animal]|Animals are living creatures that move and eat food. Examples include dogs, birds, and fish.
+
+[Plant]|Plants are living things that make their own food using sunlight. They include trees and flowers.
+
+[Bird]|Birds are animals with feathers and wings. They can fly, like eagles and sparrows.
+
+[Fish]|Fish live in water and breathe with gills. Examples include sharks and goldfish.
+
+[Insect]|Insects have six legs and antennae. Bees and butterflies are common insects.
+
+[Reptile]|Reptiles have scales and lay eggs. Snakes and lizards are examples.
+
+[Mammal]|Mammals have hair and feed milk to their babies. Humans and whales are mammals.
+
+[Dinosaur]|Dinosaurs were large reptiles that lived millions of years ago. Some were as big as houses.
+
+[Space]|Space is the vast area beyond Earth. It contains stars, planets, and galaxies.
+
+[Galaxy]|A galaxy is a huge group of stars. The Milky Way is our galaxy.
+
+[Star]|Stars are huge balls of gas that produce light and heat, like the Sun.
+
+[Planet]|Planets orbit stars. Earth is one of eight planets in our solar system.
+
+[Astronaut]|Astronauts are people trained to travel and work in space.
+
+[Rocket]|Rockets are vehicles that carry people or satellites into space.
+
+[Satellite]|Satellites are objects that orbit Earth, used for weather and communication.
+
+[Gravity]|Gravity is a force that pulls objects toward each other. It keeps us on Earth.
+
+[Energy]|Energy is the ability to do work. It comes from the Sun, food, and electricity.
+
+[Light]|Light is what we see with. It comes from the Sun and lamps.
+
+[Sound]|Sound is made by vibrations. We hear it with our ears.
+
+[Weather]|Weather includes rain, snow, and sunshine. It changes every day.
+
+[Cloud]|Clouds are water droplets in the sky. They bring rain or snow.
+
+[Wind]|Wind is moving air. It can be gentle or strong like a storm.
+
+[Snow]|Snow is frozen water that falls from clouds in cold weather.
+
+[Rain]|Rain is water that falls from clouds. It helps plants grow.
+
+[Storm]|Storms are strong weather with rain, wind, and sometimes thunder.
+
+[Thunder]|Thunder is the sound made by lightning. It can be loud and scary.
+
+[Lightning]|Lightning is a bright flash of electricity during a storm.
+
+[Forest]|Forests are areas with many trees. They are homes for animals.
+
+[Grassland]|Grasslands have lots of grass and few trees. Zebras live there.
+
+[Tundra]|Tundra is a cold, treeless area. It has moss and lichens.
+
+[Coral Reef]|Coral reefs are underwater structures made by tiny animals called corals.
+
+[Whale]|Whales are large sea mammals that sing and migrate long distances.
+
+[Shark]|Sharks are fish with sharp teeth. They live in oceans.
+
+[Dolphin]|Dolphins are smart mammals that live in the sea and love to play.
+
+[Turtle]|Turtles are reptiles with hard shells. Some live on land, some in water.
+
+[Frog]|Frogs are amphibians that live near water. They start as tadpoles.
+
+[Butterfly]|Butterflies are insects with colorful wings. They start as caterpillars.
+
+[Bee]|Bees make honey and help flowers grow by pollination.
+
+[Ant]|Ants are small insects that live in colonies and work together.
+
+[Spider]|Spiders are arachnids with eight legs. They make webs to catch food.
+
+[Elephant]|Elephants are large mammals with trunks. They live in Africa and Asia.
+
+[Lion]|Lions are big cats that live in groups called prides. They are kings of the savanna.
+
+[Tiger]|Tigers are solitary cats with stripes. They live in forests and jungles.
+
+[Bear]|Bears are mammals that hibernate in winter. They eat fish and berries.
+
+[Wolf]|Wolves are pack animals that hunt together. They howl at the moon.
+
+[Fox]|Foxes are clever mammals with bushy tails. They adapt to many places.
+
+[Deer]|Deer are graceful animals with antlers. They eat plants in forests.
+
+[Rabbit]|Rabbits are small mammals with long ears. They hop and dig burrows.
+
+[Squirrel]|Squirrels are rodents that climb trees. They store nuts for winter.
+
+[Owl]|Owls are night birds with big eyes. They hunt mice and insects.
+
+[Eagle]|Eagles are powerful birds that soar high. They have sharp talons.
+
+[Penguin]|Penguins are birds that can’t fly but swim. They live in cold places.
+
+[Kangaroo]|Kangaroos are marsupials from Australia. They hop and carry babies in pouches.
+
+[Koala]|Koalas are Australian marsupials that eat eucalyptus leaves.
+
+# End of Sample (100 Entries)

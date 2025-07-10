@@ -7,11 +7,11 @@ from flask_caching import Cache
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from flask_mail import Mail
-from utils.helpers import load_config
+from app.config import Config
 import os
 
 app = Flask(__name__)
-app.config.update(load_config('config.json'))
+app.config.update(Config())
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///app.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'super-secret-key-for-kids')

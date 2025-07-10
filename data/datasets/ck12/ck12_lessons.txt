@@ -1,0 +1,28 @@
+# CK-12 Sample Dataset for EduHope
+# Format: [Lesson Title]|[Subject]|[Age Group]|[Content]|[Culture]|[Style]|[Difficulty Level]|[Interactive Elements]|[Rewards]|[Learning Objectives]|[Estimated Time]
+
+# Math Lessons
+[Counting Stars]|Math|4-6|Learn to count from 1 to 10 using colorful stars! Start with one star and add one each time. Can you count to 10? Try drawing stars as you go!|Middle Eastern|Visual|1|[counting_game]|[points:50]|[Count to 10]|15
+[Adding Fun]|Math|6-8|Let’s add numbers together! Take 2 apples and add 3 more. How many do you have? Practice with 5 examples: 2+3, 4+1, 5+2, 3+4, 1+5.|Global|Interactive|2|[addition_quiz]|[points:75, badge:beginner]|[Add numbers up to 10]|20
+[Shapes Adventure]|Math|4-6|Explore shapes like circles, squares, and triangles! Find them in your room or draw them. Match each shape to its name.|African|Visual|1|[shape_matching]|[points:50]|[Identify basic shapes]|15
+[Simple Subtraction]|Math|6-8|Subtract numbers with ease! Start with 5 candies and eat 2. How many are left? Try 4-1, 6-3, 5-2.|Asian|Text|2|[subtraction_game]|[points:75]|[Subtract numbers up to 10]|20
+[Time Telling]|Math|8-12|Learn to read a clock! The big hand shows minutes, the small hand shows hours. What time is it when the small hand is on 3 and the big hand is on 12?|Western|Interactive|3|[clock_game]|[points:100, badge:time_master]|[Read analog clock]|25
+
+# Science Lessons
+[Animals of the World]|Science|4-6|Discover animals like lions, elephants, and penguins! Where do they live? Draw your favorite animal and its home.|Global|Visual|1|[animal_quiz]|[points:50]|[Name 5 animals and habitats]|15
+[Water Cycle Fun]|Science|6-8|Learn how water moves from rain to rivers! It evaporates, forms clouds, and falls as rain. Color a water cycle picture!|Middle Eastern|Interactive|2|[water_cycle_sim]|[points:75, badge:water_explorer]|[Describe water cycle stages]|20
+[Plants and Sun]|Science|4-6|Find out how plants use sunlight to grow! They need water and soil too. Plant a seed and watch it grow.|African|Visual|1|[plant_game]|[points:50]|[Explain photosynthesis basics]|15
+[Weather Watch]|Science|8-12|Explore weather types: sunny, rainy, snowy! Check the weather outside and predict tomorrow’s weather.|Asian|Text|3|[weather_quiz]|[points:100]|[Identify weather patterns]|25
+[Simple Machines]|Science|6-8|Discover levers, pulleys, and wheels! Build a small lever with a ruler and a pencil. How does it lift things?|Western|Interactive|2|[machine_sim]|[points:75]|[Name 3 simple machines]|20
+
+# Additional Lessons
+[Colors and Patterns]|Math|4-6|Learn colors and make patterns! Use red, blue, and yellow blocks to create a repeating pattern.|Global|Visual|1|[pattern_game]|[points:50]|[Create a color pattern]|15
+[Space Exploration]|Science|8-12|Journey to the moon and stars! Learn about planets and draw your own solar system.|Middle Eastern|Interactive|3|[space_quiz]|[points:100, badge:astronaut]|[Name 8 planets]|25
+[Healthy Eating]|Science|6-8|Eat fruits and veggies! Learn which foods give energy. Make a healthy snack plate.|African|Visual|2|[food_quiz]|[points:75]|[List 5 healthy foods]|20
+[Number Patterns]|Math|8-12|Find patterns in numbers! What comes next: 2, 4, 6, 8? Solve 3 more patterns.|Asian|Text|3|[pattern_quiz]|[points:100]|[Identify number sequences]|25
+[Earth Layers]|Science|8-12|Explore the Earth’s layers: crust, mantle, core! Draw each layer and label it.|Western|Interactive|3|[earth_sim]|[points:100, badge:geologist]|[Describe Earth’s layers]|25
+
+# Notes
+- Each lesson is delimited by '|' for easy parsing.
+- Content is child-friendly and culturally diverse.
+- Add more lessons by following the same format.

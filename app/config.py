@@ -37,14 +37,14 @@ class Config:
     ]
     PET_ACCESSORY_CATEGORIES = ['Hat', 'Cape', 'Shoes', 'Necklace', 'Wings']
     
-    # Dataset paths
+    # Dataset paths (updated with specific files)
     DATASET_PATHS = {
-        'wikitext': 'data/datasets/wikitext',
-        'folktales': 'data/datasets/folktales',
-        'ck12': 'data/datasets/ck12',
-        'wikipedia': 'data/datasets/wikipedia',
-        'who': 'data/datasets/who',
-        'tatoeba': 'data/datasets/tatoeba'
+        'wikitext': 'data/datasets/wikitext/custom_stories.txt',
+        'folktales': 'data/datasets/folktales/custom_folktales.txt',  # Placeholder, assuming similar structure
+        'ck12': 'data/datasets/ck12/custom_lessons.txt',  # Placeholder
+        'wikipedia': 'data/datasets/wikipedia/custom_wikipedia.txt',  # Placeholder
+        'who': 'data/datasets/who/custom_health_facts.txt',
+        'tatoeba': 'data/datasets/tatoeba/custom_sentences.txt'  # Placeholder
     }
     
     # AI model paths
