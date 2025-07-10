@@ -1,34 +1,52 @@
-"""
-EduHope Services Package
-Provides AI-powered services for personalized learning, emotional support, and content generation.
-"""
+from flask_sqlalchemy import SQLAlchemy
 
-# Import models used across service modules
-from app.models.achievement import Achievement, UserAchievement, AchievementCategory
-from app.models.chat import ChatMessage, ChatSession, ChatType, EmotionLevel
-from app.models.emotion import EmotionalState, SupportSession
-from app.models.game_progress import GameProgress
-from app.models.lesson import Lesson, LessonFeedback, UserProgress as LessonUserProgress
-from app.models.pet import Pet
-from app.models.pet_accessory import PetAccessory, UserPetAccessory
-from app.models.social import (
-    SocialActivity, SocialGroup, FriendRequest, Friendship,
-    GroupMember, Chat, ChatReaction
-)
-from app.models.story import Story, StoryCollaboration, StoryProgress, StoryRating
-from app.models.user import User, UserProgress, LearningSession
+db = SQLAlchemy()
 
-# Optionally: Define what gets exported on `from app.services import *`
-__all__ = [
-    "Achievement", "UserAchievement", "AchievementCategory",
-    "ChatMessage", "ChatSession", "ChatType", "EmotionLevel",
-    "EmotionalState", "SupportSession",
-    "GameProgress",
-    "Lesson", "LessonFeedback", "LessonUserProgress",
-    "Pet",
-    "PetAccessory", "UserPetAccessory",
-    "SocialActivity", "SocialGroup", "FriendRequest", "Friendship",
-    "GroupMember", "Chat", "ChatReaction",
-    "Story", "StoryCollaboration", "StoryProgress", "StoryRating",
-    "User", "UserProgress", "LearningSession"
-]
+from .achievement import Achievement, UserAchievement
+from .chat import ChatSession, ChatMessage
+from .CounselorConversation import CounselorConversation
+from .emotion import EmotionalState
+from .game_progress import GameProgress
+from .journalEntry import JournalEntry
+from .lesson import Lesson
+from .pet_accessory import PetAccessory
+from .pet import Pet
+from .social import Social
+from .story import Story
+from .user import User
+
+def init_db(app):
+    """
+    Initialize the database with the Flask app.
+    """
+    db.init_app(app)
+    with app.app_context():
+        db.create_all()
+        # Seed initial data if needed
+        if not Achievement.query.first():
+            for ach in Achievement.create_default_achievements():
+                db.session.add(Achievement(**ach))
+            db.session.commit()
+
+# Define UserProgress for relationships
+class UserProgress(db.Model):
+    __tablename__ = "user_progress"
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    lesson_id = db.Column(db.Integer, db.ForeignKey("lessons.id"), nullable=False)
+    score = db.Column(db.Integer, default=0)
+    time_spent = db.Column(db.Integer, default=0)
+    completed_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    user = db.relationship("User", backref="progress")
+    lesson = db.relationship("Lesson", backref="user_progress")
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "user_id": self.user_id,
+            "lesson_id": self.lesson_id,
+            "score": self.score,
+            "time_spent": self.time_spent,
+            "completed_at": self.completed_at.isoformat() if self.completed_at else None
+        }

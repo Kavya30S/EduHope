@@ -1,84 +1,87 @@
 import os
-from datetime import timedelta
 
 class Config:
-    # Basic Configuration
-    SECRET_KEY = os.environ.get('SECRET_KEY') or 'eduhope-magical-learning-key-2024'
-    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or 'sqlite:///eduhope.db'
+    """Configuration settings for EduHope application."""
+    SECRET_KEY = os.environ.get('SECRET_KEY', 'super-secret-key-for-kids')
+    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL', 'sqlite:///app.db')
     SQLALCHEMY_TRACK_MODIFICATIONS = False
-    
-    # Session Configuration
-    PERMANENT_SESSION_LIFETIME = timedelta(hours=24)
-    SESSION_COOKIE_SECURE = False  # Set to True in production with HTTPS
+    UPLOAD_FOLDER = 'app/static/uploads'
+    CACHE_TYPE = 'redis'
+    CACHE_REDIS_URL = 'redis://localhost:6379/0'
+    MAIL_SERVER = 'smtp.gmail.com'
+    MAIL_PORT = 587
+    MAIL_USE_TLS = True
+    MAIL_USERNAME = os.environ.get('MAIL_USERNAME', 'your-email@gmail.com')
+    MAIL_PASSWORD = os.environ.get('MAIL_PASSWORD', 'your-app-password')
+    BABEL_DEFAULT_LOCALE = 'en'
+    BABEL_SUPPORTED_LOCALES = ['en', 'es', 'fr', 'ar']
+    MAX_CONTENT_LENGTH = 16 * 1024 * 1024  # 16MB max upload size
+    SESSION_COOKIE_SECURE = True
     SESSION_COOKIE_HTTPONLY = True
     SESSION_COOKIE_SAMESITE = 'Lax'
+    RATE_LIMIT_STORAGE_URL = 'redis://localhost:6379/0'
+    RATE_LIMIT_DEFAULTS = ['200 per day', '50 per hour']
     
-    # File Upload Configuration
-    MAX_CONTENT_LENGTH = 16 * 1024 * 1024  # 16MB max file size
-    UPLOAD_FOLDER = 'app/static/uploads'
-    ALLOWED_EXTENSIONS = {'txt', 'pdf', 'png', 'jpg', 'jpeg', 'gif', 'mp3', 'wav'}
+    # Child-friendly UI settings
+    THEME_COLORS = {
+        'primary': '#FF6B35',
+        'secondary': '#FFB6C1',
+        'accent': '#87CEEB',
+        'highlight': '#FFD700'
+    }
     
-    # AI Model Configuration
-    GPT2_MODEL_PATH = 'data/models/gpt2_edu'
-    SENTIMENT_MODEL_PATH = 'cardiffnlp/twitter-roberta-base-sentiment-latest'
-    
-    # Real-time Learning Configuration
-    LEARNING_ANALYTICS_ENABLED = True
-    ADAPTIVE_LEARNING_ENABLED = True
-    REAL_TIME_FEEDBACK = True
-    
-    # Pet System Configuration
+    # Pet system settings
     PET_TYPES = [
-        'Dragon', 'Unicorn', 'Phoenix', 'Griffin', 'Pegasus', 'Fairy', 'Robot', 'Alien',
-        'Mermaid', 'Wizard Cat', 'Rainbow Wolf', 'Crystal Fox', 'Star Bear', 'Moon Rabbit',
-        'Fire Tiger', 'Ice Penguin', 'Forest Deer', 'Ocean Dolphin', 'Sky Eagle', 'Magic Turtle',
-        'Cosmic Owl', 'Dream Horse', 'Thunder Lion', 'Flower Butterfly', 'Space Monkey'
+        'Dragon', 'Unicorn', 'Robot', 'Phoenix', 'Griffin',
+        'Mermaid', 'Yeti', 'Pixie', 'Kraken', 'Sphinx'
     ]
+    PET_ACCESSORY_CATEGORIES = ['Hat', 'Cape', 'Shoes', 'Necklace', 'Wings']
     
-    # Gamification Settings
-    BASE_XP_REWARD = 10
-    ACHIEVEMENT_MULTIPLIER = 2
-    DAILY_LOGIN_BONUS = 5
-    STREAK_MULTIPLIER = 1.5
+    # Dataset paths
+    DATASET_PATHS = {
+        'wikitext': 'data/datasets/wikitext',
+        'folktales': 'data/datasets/folktales',
+        'ck12': 'data/datasets/ck12',
+        'wikipedia': 'data/datasets/wikipedia',
+        'who': 'data/datasets/who',
+        'tatoeba': 'data/datasets/tatoeba'
+    }
     
-    # Emotional Support Configuration
-    MOOD_TRACKING_ENABLED = True
-    AI_COMPANION_ENABLED = True
-    CRISIS_KEYWORDS = ['sad', 'lonely', 'scared', 'angry', 'hurt', 'worried', 'afraid']
+    # AI model paths
+    MODEL_PATHS = {
+        'gpt2_edu': 'data/models/gpt2_edu'
+    }
     
-    # Content Moderation
-    PROFANITY_FILTER_ENABLED = True
-    CONTENT_SAFETY_ENABLED = True
+    # Email notification settings
+    NOTIFICATION_SUBJECTS = {
+        'login': 'EduHope: Child Login Notification',
+        'progress': 'EduHope: Child Progress Update',
+        'emotion': 'EduHope: Child Emotional Update'
+    }
     
-    # Multilingual Support
-    SUPPORTED_LANGUAGES = ['en', 'es', 'fr', 'de', 'hi', 'ar', 'zh', 'ja', 'pt', 'ru']
-    DEFAULT_LANGUAGE = 'en'
+    def __init__(self):
+        """Initialize configuration with environment variables."""
+        self.validate_config()
     
-    # Performance Settings
-    REDIS_URL = os.environ.get('REDIS_URL') or 'redis://localhost:6379/0'
-    CACHE_TYPE = 'simple'  # Use 'redis' in production
-    CACHE_DEFAULT_TIMEOUT = 300
+    def validate_config(self):
+        """Validate configuration settings."""
+        required_env_vars = ['MAIL_USERNAME', 'MAIL_PASSWORD']
+        for var in required_env_vars:
+            if not os.environ.get(var):
+                print(f"Warning: Environment variable {var} not set")
     
-    @staticmethod
-    def init_app(app):
-        pass
-
-class DevelopmentConfig(Config):
-    DEBUG = True
-    SQLALCHEMY_ECHO = True
-
-class ProductionConfig(Config):
-    DEBUG = False
-    SQLALCHEMY_ECHO = False
-    SESSION_COOKIE_SECURE = True
-
-class TestingConfig(Config):
-    TESTING = True
-    SQLALCHEMY_DATABASE_URI = 'sqlite:///:memory:'
-
-config = {
-    'development': DevelopmentConfig,
-    'production': ProductionConfig,
-    'testing': TestingConfig,
-    'default': DevelopmentConfig
-}
+    def get_theme_color(self, key: str) -> str:
+        """Get theme color by key."""
+        return self.THEME_COLORS.get(key, '#FF6B35')
+    
+    def get_dataset_path(self, dataset: str) -> str:
+        """Get dataset path by key."""
+        return self.DATASET_PATHS.get(dataset, '')
+    
+    def get_model_path(self, model: str) -> str:
+        """Get model path by key."""
+        return self.MODEL_PATHS.get(model, '')
+    
+    def get_notification_subject(self, notification_type: str) -> str:
+        """Get notification subject by type."""
+        return self.NOTIFICATION_SUBJECTS.get(notification_type, 'EduHope Notification')

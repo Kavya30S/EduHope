@@ -1,87 +1,60 @@
-import os
+from transformers import GPT2LMHeadModel, GPT2Tokenizer
+from flask import current_app
 import json
-import requests
-from typing import Dict, List, Optional, Tuple
-import logging
-from datetime import datetime
-import threading
-import time
 
-# Translation libraries
-try:
-    from googletrans import Translator as GoogleTranslator
-    import translators as ts
-    TRANSLATION_AVAILABLE = True
-except ImportError:
-    TRANSLATION_AVAILABLE = False
-    logging.warning("Translation libraries not available. Translation features will be limited.")
+# Load model and tokenizer
+model_path = current_app.config.get("MODEL_PATH", "gpt2")
+tokenizer = GPT2Tokenizer.from_pretrained(model_path)
+model = GPT2LMHeadModel.from_pretrained(model_path)
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+def generate_text(prompt, max_length=100, temperature=0.7):
+    """
+    Generate text using GPT-2 model with child-friendly adjustments.
+    """
+    inputs = tokenizer.encode(prompt, return_tensors="pt")
+    outputs = model.generate(
+        inputs,
+        max_length=max_length,
+        temperature=temperature,
+        top_k=50,
+        top_p=0.95,
+        do_sample=True,
+        pad_token_id=tokenizer.eos_token_id
+    )
+    text = tokenizer.decode(outputs[0], skip_special_tokens=True)
+    return moderate_text(text)
 
-class LLMService:
-    def __init__(self):
-        self.google_translator = None
-        self.supported_languages = {
-            'en': {'name': 'English', 'flag': '🇺🇸', 'native': 'English'},
-            'es': {'name': 'Spanish', 'flag': '🇪🇸', 'native': 'Español'},
-            'fr': {'name': 'French', 'flag': '🇫🇷', 'native': 'Français'},
-            'de': {'name': 'German', 'flag': '🇩🇪', 'native': 'Deutsch'},
-            'hi': {'name': 'Hindi', 'flag': '🇮🇳', 'native': 'हिन्दी'},
-            'zh': {'name': 'Chinese', 'flag': '🇨🇳', 'native': '中文'},
-            'ja': {'name': 'Japanese', 'flag': '🇯🇵', 'native': '日本語'},
-            'ko': {'name': 'Korean', 'flag': '🇰🇷', 'native': '한국어'},
-            'ar': {'name': 'Arabic', 'flag': '🇸🇦', 'native': 'العربية'},
-            'pt': {'name': 'Portuguese', 'flag': '🇵🇹', 'native': 'Português'},
-            'ru': {'name': 'Russian', 'flag': '🇷🇺', 'native': 'Русский'},
-            'it': {'name': 'Italian', 'flag': '🇮🇹', 'native': 'Italiano'},
-            'tr': {'name': 'Turkish', 'flag': '🇹🇷', 'native': 'Türkçe'},
-            'pl': {'name': 'Polish', 'flag': '🇵🇱', 'native': 'Polski'},
-            'nl': {'name': 'Dutch', 'flag': '🇳🇱', 'native': 'Nederlands'}
-        }
-        
-        self.user_preferences = {}
-        self.translation_cache = {}
-        self.offline_translations = {}
-        self.initialize_translation_services()
-        self.load_offline_translations()
-        
-    def initialize_translation_services(self):
-        """Initialize translation services"""
-        global TRANSLATION_AVAILABLE
-        if not TRANSLATION_AVAILABLE:
-            logger.warning("Translation libraries not available")
-            return
-            
-        try:
-            self.google_translator = GoogleTranslator()
-            logger.info("Translation services initialized successfully")
-            
-        except Exception as e:
-            logger.error(f"Error initializing translation services: {e}")
-            TRANSLATION_AVAILABLE = False
-    
-    def generate_tutor_response(self, question, user_profile, context, sentiment):
-        """Generate personalized tutor response"""
-        # Implement your LLM logic here
-        # For now, return a simple response
-        return f"Based on your learning profile, here's help with your question: {question}"
-    
-    def generate_practice_exercises(self, topic):
-        """Generate practice exercises for a topic"""
-        return [
-            f"Practice exercise 1 for {topic}",
-            f"Practice exercise 2 for {topic}",
-            f"Practice exercise 3 for {topic}"
-        ]
-    
-    def generate_explanations(self, topic):
-        """Generate explanations for a topic"""
-        return [
-            f"Detailed explanation of {topic}",
-            f"Step-by-step guide for {topic}",
-            f"Common mistakes in {topic}"
-        ]
-    
-    def load_offline_translations(self):
-        """Load offline translation data from file if available"""
+def moderate_text(text):
+    """
+    Ensure generated text is child-friendly.
+    """
+    from app.services.moderation_service import moderate_content, check_content_safety
+    censored = moderate_content(text)
+    if not check_content_safety(censored):
+        return "Oops! Let’s try something more fun: Tell me about your favorite adventure!"
+    return censored
+
+def get_model_info():
+    """
+    Retrieve information about the loaded model.
+    """
+    return {
+        "model_name": "GPT-2",
+        "model_path": model_path,
+        "parameters": model.config.n_embd,
+        "tokenizer": tokenizer.__class__.__name__
+    }
+
+def generate_story_prompt(user_id, theme):
+    """
+    Generate a story prompt based on user preferences.
+    """
+    user = User.query.get(user_id)
+    if not user:
+        return {"error": "User not found"}, 404
+
+    pet = Pet.query.filter_by(user_id=user_id).first()
+    pet_name = pet.name if pet else "your magical friend"
+    base_prompt = f"Write a fun story for a child about {pet_name} going on a {theme} adventure!"
+    story = generate_text(base_prompt)
+    return {"story": story}, 200
