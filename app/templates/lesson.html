@@ -1,18 +1,19 @@
-{% extends "base.html" %}
-{% block title %}Lessons{% endblock %}
+<!-- Using dataset: custom_health_facts.txt -->
+
+{% extends 'base.html' %}
 {% block content %}
-<h2>{{ lesson.title if lesson else "Your Lessons" }}</h2>
-{% if lesson %}
-    <p>{{ lesson.content }}</p>
-    <form method="POST">
-        <input type="number" name="score" min="0" max="100" placeholder="Your Score">
-        <button type="submit">Submit</button>
-    </form>
-{% else %}
-    <ul>
+<div class="lesson">
+    {% if lesson %}
+        <h1>{{ lesson.title }}</h1>
+        <p>{{ lesson.description }}</p>
+        <div>{{ lesson.content | safe }}</div>
+        <p>Health Fact: {{ first_fact }}</p>
+    {% else %}
+        <h1>Your Lessons</h1>
         {% for l in lessons %}
-            <li><a href="{{ url_for('education.lesson', lesson_id=l.id) }}">{{ l.title }} - {{ l.subject }}</a></li>
+            <a href="{{ url_for('education.view_lesson', id=l.id) }}" class="card">{{ l.title }}</a>
+            <p>Health Fact: {{ l.health_fact }}</p>
         {% endfor %}
-    </ul>
-{% endif %}
+    {% endif %}
+</div>
 {% endblock %}

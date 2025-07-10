@@ -1,32 +1,33 @@
-from flask import Blueprint, render_template, redirect, url_for, request
+from flask import Blueprint, render_template, request
 from flask_login import login_required, current_user
+from fuzzywuzzy import fuzz
 from app import db
 from app.models.game_progress import GameProgress
 from app.services.voice_service import recognize_speech
+from app.config import Config
+import random
 
-language_games = Blueprint("language_games", __name__)
+language_games_bp = Blueprint('language_games', __name__)
 
-@language_games.route("/language")
+@language_games_bp.route('/language_games')
 @login_required
-def language_game():
-    progress = GameProgress.query.filter_by(user_id=current_user.id, game_type="language").first()
-    return render_template("language_game.html", progress=progress)
+def language_games():
+    progress = GameProgress.query.filter_by(user_id=current_user.id, game_type='language').all()
+    return render_template('language_game.html', progress=progress)
 
-@language_games.route("/language/play", methods=["POST"])
+@language_games_bp.route('/language_game/play', methods=['POST'])
 @login_required
 def play_language_game():
-    audio = request.files["audio"]
-    audio_data = AudioData(audio.read(), sample_rate=16000, sample_width=2)
-    result, status = recognize_speech(audio_data)
-    if status != 200:
-        flash(result["error"])
-        return redirect(url_for("language_games.language_game"))
-
-    progress = GameProgress.query.filter_by(user_id=current_user.id, game_type="language").first()
-    if not progress:
-        progress = GameProgress(user_id=current_user.id, game_type="language")
-        db.session.add(progress)
-    progress.update_progress(score=100, time_spent=60, success=True)
+    config = Config()
+    dataset_path = config.get_dataset_path('who')  # Corrected to use custom_health_facts.txt
+    with open(dataset_path, 'r', encoding='utf-8') as f:
+        sentences = f.readlines()
+    expected = random.choice(sentences).strip()
+    audio_file = request.files['audio']
+    spoken_text = recognize_speech(audio_file)
+    similarity = fuzz.ratio(spoken_text.lower(), expected.lower())
+    score = similarity if similarity > 50 else 0
+    progress = GameProgress(user_id=current_user.id, game_type='language', score=score, completed=True)
+    db.session.add(progress)
     db.session.commit()
-    flash("Great job speaking!")
-    return redirect(url_for("language_games.language_game"))
+    return redirect(url_for('language_games.language_games'))

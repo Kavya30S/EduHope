@@ -1,36 +1,31 @@
-from flask import Blueprint, render_template, redirect, url_for, request
+from flask import Blueprint, render_template, request
 from flask_login import login_required, current_user
-from app import db
+from app import db, socketio
 from app.models.story import Story
-from app.services.llm_service import generate_story_prompt
+from app.services.llm_services import generate_story_suggestion
+from app.config import Config
+import random
 
-storytelling = Blueprint("storytelling", __name__)
+storytelling_bp = Blueprint('storytelling', __name__)
 
-@storytelling.route("/")
+@storytelling_bp.route('/storytelling')
 @login_required
-def stories():
-    user_stories = Story.query.filter_by(creator_id=current_user.id).all()
-    return render_template("storytelling.html", stories=user_stories)
+def storytelling():
+    config = Config()
+    dataset_path = config.get_dataset_path('wikitext')  # Corrected to use custom_stories.txt
+    with open(dataset_path, 'r', encoding='utf-8') as f:
+        story_prompts = f.readlines()
+    random_prompt = random.choice(story_prompts) if story_prompts else "Once upon a time..."
+    stories = Story.query.all()
+    return render_template('storytelling.html', stories=stories, random_prompt=random_prompt)
 
-@storytelling.route("/create", methods=["GET", "POST"])
+@storytelling_bp.route('/story/new', methods=['POST'])
 @login_required
-def create_story():
-    if request.method == "POST":
-        title = request.form["title"]
-        content = request.form["content"]
-        story = Story(title=title, content=content, creator_id=current_user.id)
-        db.session.add(story)
-        db.session.commit()
-        flash("Story saved!")
-        return redirect(url_for("storytelling.stories"))
-    return render_template("create_story.html")
-
-@storytelling.route("/generate", methods=["POST"])
-@login_required
-def generate_story():
-    theme = request.form["theme"]
-    result, status = generate_story_prompt(current_user.id, theme)
-    if status == 200:
-        return render_template("storytelling.html", generated_story=result["story"])
-    flash(result["error"])
-    return redirect(url_for("storytelling.stories"))
+def new_story():
+    prompt = request.form['prompt']
+    suggestion = generate_story_suggestion(prompt)
+    story = Story(user_id=current_user.id, title=request.form['title'], content=suggestion)
+    db.session.add(story)
+    db.session.commit()
+    socketio.emit('new_story', {'title': story.title, 'content': story.content})
+    return redirect(url_for('storytelling.storytelling'))

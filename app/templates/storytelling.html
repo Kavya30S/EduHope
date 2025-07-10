@@ -1,23 +1,20 @@
-{% extends "base.html" %}
-{% block title %}Storytelling{% endblock %}
+<!-- Using dataset: custom_stories.txt -->
+
+{% extends 'base.html' %}
 {% block content %}
-<h2>Your Stories</h2>
-<ul>
-    {% for story in stories %}
-        <li>{{ story.title }} - {{ story.genre }}</li>
-    {% endfor %}
-</ul>
-{% if generated_story %}
-    <h3>Generated Story</h3>
-    <p>{{ generated_story }}</p>
-{% endif %}
-<form method="POST" action="{{ url_for('storytelling.create_story') }}">
-    <input type="text" name="title" placeholder="Story Title" required>
-    <textarea name="content" rows="5" placeholder="Write your story..." required></textarea>
-    <button type="submit">Save Story</button>
-</form>
-<form method="POST" action="{{ url_for('storytelling.generate_story') }}">
-    <input type="text" name="theme" placeholder="Story Theme (e.g., adventure)">
-    <button type="submit">Generate Story</button>
-</form>
+<div class="storytelling">
+    <h1>Collaborative Storytelling</h1>
+    <p>Start with this prompt: {{ random_prompt }}</p>
+    <form method="POST" action="{{ url_for('storytelling.new_story') }}">
+        <input type="text" name="title" placeholder="Story Title" required>
+        <textarea name="prompt" placeholder="Start your story..." required></textarea>
+        <button type="submit" class="btn">Create</button>
+    </form>
+    <div id="story-list">
+        {% for story in stories %}
+            <h3>{{ story.title }}</h3>
+            <p>{{ story.content }}</p>
+        {% endfor %}
+    </div>
+</div>
 {% endblock %}
